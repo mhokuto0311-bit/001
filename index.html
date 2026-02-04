@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支払督促申立書 自動作成ツール</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (JSXをブラウザで動かすために必要) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS (デザイン用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 印刷用スタイル -->
+    <style>
+        @media print {
+            @page { size: A4; margin: 0; }
+            body { background: white; -webkit-print-color-adjust: exact; }
+            .print\:hidden { display: none !important; }
+            .print\:block { display: block !important; }
+            .print\:w-full { width: 100% !important; }
+            .print\:p-0 { padding: 0 !important; }
+            .print\:shadow-none { box-shadow: none !important; }
+            .page { 
+                break-after: page; 
+                min-height: 297mm; 
+                height: 297mm; 
+                width: 210mm; 
+                padding: 20mm !important; 
+                margin: 0 !important; 
+                box-shadow: none !important;
+            }
+            .print-pages-container { width: 100%; }
+        }
+        /* 画面表示時のスタイル調整 */
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            padding: 20mm;
+            color: black;
+            font-family: "Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+            font-size: 12pt;
+            line-height: 1.6;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- アイコンコンポーネント (LucideのSVGを直接定義) ---
+        const Icon = ({ path }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                {path}
+            </svg>
+        );
+        const Printer = () => <Icon path={<><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></>} />;
+        const FileText = () => <Icon path={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />;
+        const RotateCcw = () => <Icon path={<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>} />;
+        const Search = () => <Icon path={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>} />;
+        const Calculator = () => <Icon path={<><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="8" y1="18" x2="8" y2="18"/></>} />;
+        const MapPin = () => <Icon path={<><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></>} />;
+        const ExternalLink = () => <Icon path={<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>} />;
+        const Plus = () => <Icon path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />;
+        const Trash2 = () => <Icon path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />;
+
+        // --- メインアプリ ---
+        function App() {
+            // デフォルトの初期値
+            const initialData = {
+                courtName: '',
+                date: new Date().toISOString().split('T')[0],
+                creditor: { name: '', address: '', postalCode: '', phone: '', fax: '' },
+                debtor: { name: '', address: '', postalCode: '', phone: '', fax: '' },
+                loan: {
+                    date: '', amount: '', hasInterest: 'no', interestRate: '',
+                    hasDeadline: 'no', deadlineDate: '', deadlineNoticeDate1: '', deadlineNoticeDate2: '',
+                    hasDelayDamages: 'no', delayDamagesRate: '',
+                    hasGuarantor: 'no', guarantorName: '',
+                    specialCondition: '', repaymentStatus: 'none',
+                    repaymentHistory: [{ date: '', amount: '', type: '元金' }]
+                },
+                claim: { principal: '', interest: '0', delayDamages: '0', delayDamagesRate: '3', startDate: '', startDateMode: 'served_next' },
+                costs: { fee: '', serveCost: '', noticeCost: '', createCost: '', certCost: '' },
+                attachments: { cert: false, other1: '', other2: '' }
+            };
+
+            const [formData, setFormData] = React.useState(initialData);
+            const [jurisdictionMessage, setJurisdictionMessage] = React.useState('');
+            const [isSearching, setIsSearching] = React.useState(false);
+
+            // 住所検索
+            const searchAddress = async (postalCode, target) => {
+                if (!postalCode || postalCode.length < 7) {
+                    alert("7桁の郵便番号を入力してください");
+                    return;
+                }
+                setIsSearching(true);
+                try {
+                    const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${postalCode}`);
+                    const data = await response.json();
+                    if (data.results) {
+                        const result = data.results[0];
+                        const fullAddress = result.address1 + result.address2 + result.address3;
+                        if (target === 'creditor') {
+                            setFormData(prev => ({ ...prev, creditor: { ...prev.creditor, address: fullAddress } }));
+                        } else {
+                            setFormData(prev => ({ ...prev, debtor: { ...prev.debtor, address: fullAddress } }));
+                        }
+                    } else {
+                        alert("住所が見つかりませんでした。");
+                    }
+                } catch (error) {
+                    console.error("Address search failed:", error);
+                } finally {
+                    setIsSearching(false);
+                }
+            };
+
+            // 管轄判定
+            const determineJurisdiction = (address) => {
+                if (!address) return '';
+                const courtMapping = [
+                    { key: '千代田区', court: '東京' }, { key: '中央区', court: '東京' }, { key: '港区', court: '東京' },
+                    { key: '新宿区', court: '東京' }, { key: '文京区', court: '東京' }, { key: '台東区', court: '東京' },
+                    { key: '墨田区', court: '東京' }, { key: '江東区', court: '東京' }, { key: '品川区', court: '東京' },
+                    { key: '目黒区', court: '東京' }, { key: '大田区', court: '東京' }, { key: '世田谷区', court: '東京' },
+                    { key: '渋谷区', court: '東京' }, { key: '中野区', court: '東京' }, { key: '杉並区', court: '東京' },
+                    { key: '豊島区', court: '東京' }, { key: '北区', court: '東京' }, { key: '荒川区', court: '東京' },
+                    { key: '板橋区', court: '東京' }, { key: '練馬区', court: '東京' }, { key: '足立区', court: '東京' },
+                    { key: '葛飾区', court: '東京' }, { key: '江戸川区', court: '東京' },
+                    { key: '大阪市', court: '大阪' }, { key: '名古屋市', court: '名古屋' },
+                    { key: '横浜市', court: '横浜' }, { key: '福岡市', court: '福岡' },
+                    { key: '札幌市', court: '札幌' }, { key: '仙台市', court: '仙台' }, { key: '広島市', court: '広島' }
+                ];
+                for (const map of courtMapping) {
+                    if (address.includes(map.key)) return map.court;
+                }
+                return '';
+            };
+
+            React.useEffect(() => {
+                const estimatedCourt = determineJurisdiction(formData.debtor.address);
+                if (estimatedCourt) {
+                    setFormData(prev => ({ ...prev, courtName: estimatedCourt }));
+                    setJurisdictionMessage(`※住所から「${estimatedCourt}簡易裁判所」を自動設定しました。`);
+                } else if (formData.debtor.address.length > 3) {
+                    setJurisdictionMessage('');
+                }
+            }, [formData.debtor.address]);
+
+            // 手数料計算
+            React.useEffect(() => {
+                const amount = parseInt(formData.claim.principal) + parseInt(formData.claim.interest || 0);
+                if (!amount || isNaN(amount)) {
+                    setFormData(prev => ({ ...prev, costs: { ...prev.costs, fee: '' } }));
+                    return;
+                }
+                let lawsuitFee = 0;
+                if (amount <= 1000000) {
+                    lawsuitFee = Math.ceil(amount / 100000) * 1000;
+                } else if (amount <= 5000000) {
+                    lawsuitFee = 10000 + Math.ceil((amount - 1000000) / 200000) * 1000;
+                } else if (amount <= 10000000) {
+                    lawsuitFee = 30000 + Math.ceil((amount - 5000000) / 500000) * 2000;
+                } else {
+                    lawsuitFee = 50000 + Math.ceil((amount - 10000000) / 1000000) * 3000;
+                }
+                const paymentOrderFee = Math.floor(lawsuitFee / 2);
+                setFormData(prev => ({
+                    ...prev,
+                    costs: { ...prev.costs, fee: paymentOrderFee.toString() }
+                }));
+            }, [formData.claim.principal, formData.claim.interest]);
+
+            // 残元金計算
+            React.useEffect(() => {
+                const original = parseInt(formData.loan.amount) || 0;
+                let repaidTotal = 0;
+                if (formData.loan.repaymentStatus === 'partial') {
+                    repaidTotal = formData.loan.repaymentHistory.reduce((sum, item) => sum + (parseInt(item.amount) || 0), 0);
+                }
+                const principal = Math.max(0, original - repaidTotal);
+                if (principal.toString() !== formData.claim.principal && formData.loan.amount) {
+                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, principal: principal.toString() } }));
+                }
+            }, [formData.loan.amount, formData.loan.repaymentStatus, formData.loan.repaymentHistory]);
+
+            // 利息計算
+            React.useEffect(() => {
+                if (formData.loan.hasInterest === 'yes' && formData.loan.hasDeadline === 'yes' && 
+                    formData.loan.date && formData.loan.deadlineDate && formData.claim.principal) {
+                    const principal = parseInt(formData.claim.principal);
+                    const rate = parseFloat(formData.loan.interestRate);
+                    const start = new Date(formData.loan.date);
+                    const end = new Date(formData.loan.deadlineDate);
+                    if (!isNaN(principal) && !isNaN(rate) && start && end && end > start) {
+                        const diffTime = Math.abs(end - start);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                        const interest = Math.floor(principal * (rate / 100) * diffDays / 365);
+                        setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: interest.toString() } }));
+                    }
+                } else if (formData.loan.hasInterest === 'no') {
+                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: '0' } }));
+                }
+            }, [formData.loan.hasInterest, formData.loan.hasDeadline, formData.loan.date, formData.loan.deadlineDate, formData.loan.interestRate, formData.claim.principal]);
+
+            // 遅延損害金利率の連動
+            React.useEffect(() => {
+                if (formData.loan.hasInterest === 'yes' && formData.loan.interestRate) {
+                    setFormData(prev => ({
+                        ...prev,
+                        loan: { ...prev.loan, delayDamagesRate: formData.loan.interestRate, hasDelayDamages: 'yes' },
+                        claim: { ...prev.claim, delayDamagesRate: formData.loan.interestRate }
+                    }));
+                } else if (formData.loan.hasInterest === 'no') {
+                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, delayDamagesRate: '3' } }));
+                }
+            }, [formData.loan.hasInterest, formData.loan.interestRate]);
+
+            const handleChange = (section, field, value) => {
+                setFormData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
+            };
+            const handleRootChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+            };
+            const handleHistoryChange = (index, field, value) => {
+                const newHistory = [...formData.loan.repaymentHistory];
+                newHistory[index] = { ...newHistory[index], [field]: value };
+                setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: newHistory } }));
+            };
+            const addHistoryRow = () => {
+                setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: [...prev.loan.repaymentHistory, { date: '', amount: '', type: '元金' }] } }));
+            };
+            const removeHistoryRow = (index) => {
+                const newHistory = formData.loan.repaymentHistory.filter((_, i) => i !== index);
+                setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: newHistory } }));
+            };
+            const getTotalCosts = () => {
+                const { fee, serveCost, noticeCost, createCost, certCost } = formData.costs;
+                return (parseInt(fee)||0) + (parseInt(serveCost)||0) + (parseInt(noticeCost)||0) + (parseInt(createCost)||0) + (parseInt(certCost)||0);
+            };
+            const getTotalClaim = () => {
+                const principal = parseInt(formData.claim.principal) || 0;
+                const interest = parseInt(formData.claim.interest) || 0;
+                const delay = parseInt(formData.claim.delayDamages) || 0;
+                return principal + interest + delay;
+            };
+            const formatCurrency = (val) => {
+                if (!val || val === '0' || val === 0) return '';
+                return Number(val).toLocaleString();
+            };
+            const toJapaneseEra = (dateString) => {
+                if (!dateString) return '　　　';
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                if (year >= 2019) {
+                    const reiwaYear = year - 2018;
+                    return `令和 ${reiwaYear === 1 ? '元' : reiwaYear} 年 ${month} 月 ${day} 日`;
+                }
+                return `${year}年 ${month}月 ${day}日`;
+            };
+            const CheckBox = ({ checked, label, noMargin }) => (
+                <span className={`inline-flex items-center ${noMargin ? '' : 'mr-4'}`}>
+                    <span className="inline-block border border-black w-4 h-4 mr-1 text-center leading-3 text-sm font-bold relative top-[1px]">
+                        {checked ? '✓' : ''}
+                    </span>
+                    {label && <span>{label}</span>}
+                </span>
+            );
+
+            return (
+                <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
+                    <header className="bg-slate-800 text-white p-4 shadow-md print:hidden">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-6 h-6" />
+                                <h1 className="text-xl font-bold">支払督促申立書 自動作成ツール</h1>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => { if(confirm('リセットしますか？')) setFormData(initialData); }} className="flex items-center gap-1 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded text-slate-200">
+                                    <RotateCcw className="w-4 h-4" /> リセット
+                                </button>
+                                <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold shadow">
+                                    <Printer className="w-5 h-5" /> PDF保存 / 印刷
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8">
+                        {/* 入力フォーム */}
+                        <div className="w-full lg:w-1/3 space-y-6 print:hidden h-[calc(100vh-100px)] overflow-y-auto pr-2">
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-blue-500">
+                                <h2 className="font-bold text-lg border-b pb-2">1. 当事者</h2>
+                                <div className="bg-blue-50 p-3 rounded space-y-3">
+                                    <h3 className="font-bold text-blue-800 text-sm">債権者（あなた）</h3>
+                                    <input type="text" placeholder="氏名" className="w-full p-2 border rounded" value={formData.creditor.name} onChange={(e) => handleChange('creditor', 'name', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="〒" className="w-24 p-2 border rounded" value={formData.creditor.postalCode} onChange={(e) => handleChange('creditor', 'postalCode', e.target.value)} />
+                                        <button onClick={() => searchAddress(formData.creditor.postalCode, 'creditor')} className="bg-blue-200 px-2 rounded"><Search className="w-4 h-4"/></button>
+                                    </div>
+                                    <input type="text" placeholder="住所" className="w-full p-2 border rounded" value={formData.creditor.address} onChange={(e) => handleChange('creditor', 'address', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="電話" className="w-1/2 p-2 border rounded" value={formData.creditor.phone} onChange={(e) => handleChange('creditor', 'phone', e.target.value)} />
+                                        <input type="text" placeholder="FAX" className="w-1/2 p-2 border rounded" value={formData.creditor.fax} onChange={(e) => handleChange('creditor', 'fax', e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className="bg-red-50 p-3 rounded space-y-3">
+                                    <h3 className="font-bold text-red-800 text-sm">債務者（相手方）</h3>
+                                    <input type="text" placeholder="氏名" className="w-full p-2 border rounded" value={formData.debtor.name} onChange={(e) => handleChange('debtor', 'name', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="〒" className="w-24 p-2 border rounded" value={formData.debtor.postalCode} onChange={(e) => handleChange('debtor', 'postalCode', e.target.value)} />
+                                        <button onClick={() => searchAddress(formData.debtor.postalCode, 'debtor')} className="bg-red-200 px-2 rounded"><Search className="w-4 h-4"/></button>
+                                    </div>
+                                    <input type="text" placeholder="住所" className="w-full p-2 border rounded" value={formData.debtor.address} onChange={(e) => handleChange('debtor', 'address', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="電話" className="w-1/2 p-2 border rounded" value={formData.debtor.phone} onChange={(e) => handleChange('debtor', 'phone', e.target.value)} />
+                                        <input type="text" placeholder="FAX" className="w-1/2 p-2 border rounded" value={formData.debtor.fax} onChange={(e) => handleChange('debtor', 'fax', e.target.value)} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-green-500">
+                                <h2 className="font-bold text-lg border-b pb-2">2. 請求の原因（貸付詳細）</h2>
+                                <div className="space-y-3">
+                                    <div><label className="text-xs font-bold text-gray-500">(1) 貸付日</label><input type="date" className="w-full p-2 border rounded" value={formData.loan.date} onChange={(e) => handleChange('loan', 'date', e.target.value)} /></div>
+                                    <div><label className="text-xs font-bold text-gray-500">(2) 貸付金額</label><div className="relative"><span className="absolute left-3 top-2">¥</span><input type="number" className="w-full p-2 pl-8 border rounded" value={formData.loan.amount} onChange={(e) => handleChange('loan', 'amount', e.target.value)} /></div></div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(3) 利息の定め</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="interest" checked={formData.loan.hasInterest === 'no'} onChange={() => handleChange('loan', 'hasInterest', 'no')} /> なし</label><label><input type="radio" name="interest" checked={formData.loan.hasInterest === 'yes'} onChange={() => handleChange('loan', 'hasInterest', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasInterest === 'yes' && (<div className="flex items-center gap-2"><span>年</span><input type="number" className="w-20 p-2 border rounded" value={formData.loan.interestRate} onChange={(e) => handleChange('loan', 'interestRate', e.target.value)} /><span>%</span></div>)}
+                                        <p className="text-[10px] text-gray-500 mt-1">※ありの場合、遅延損害金も同率になります。</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(4) 返済期の定め</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="deadline" checked={formData.loan.hasDeadline === 'no'} onChange={() => handleChange('loan', 'hasDeadline', 'no')} /> なし</label><label><input type="radio" name="deadline" checked={formData.loan.hasDeadline === 'yes'} onChange={() => handleChange('loan', 'hasDeadline', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasDeadline === 'yes' ? (
+                                            <input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineDate} onChange={(e) => handleChange('loan', 'deadlineDate', e.target.value)} />
+                                        ) : (
+                                            (formData.loan.hasInterest === 'yes') ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div><span className="text-[10px]">返済を求めた日（催告日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate1} onChange={(e) => handleChange('loan', 'deadlineNoticeDate1', e.target.value)} /></div>
+                                                    <div><span className="text-[10px]">期限日</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate2} onChange={(e) => handleChange('loan', 'deadlineNoticeDate2', e.target.value)} /></div>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div><span className="text-[10px]">返済を求めた日（催告日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate1} onChange={(e) => handleChange('loan', 'deadlineNoticeDate1', e.target.value)} /></div>
+                                                    <div><span className="text-[10px]">期限日</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate2} onChange={(e) => handleChange('loan', 'deadlineNoticeDate2', e.target.value)} /></div>
+                                                </div>
+                                            )
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(5) 遅延損害金の定め</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="delay" checked={formData.loan.hasDelayDamages === 'no'} onChange={() => handleChange('loan', 'hasDelayDamages', 'no')} /> なし</label><label><input type="radio" name="delay" checked={formData.loan.hasDelayDamages === 'yes'} onChange={() => handleChange('loan', 'hasDelayDamages', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasDelayDamages === 'yes' && (<div className="flex items-center gap-2"><span>年</span><input type="number" className="w-20 p-2 border rounded" value={formData.loan.delayDamagesRate} onChange={(e) => handleChange('loan', 'delayDamagesRate', e.target.value)} /><span>%</span></div>)}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(6) 連帯保証</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="guarantor" checked={formData.loan.hasGuarantor === 'no'} onChange={() => handleChange('loan', 'hasGuarantor', 'no')} /> なし</label><label><input type="radio" name="guarantor" checked={formData.loan.hasGuarantor === 'yes'} onChange={() => handleChange('loan', 'hasGuarantor', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasGuarantor === 'yes' && (<input type="text" placeholder="連帯保証人氏名" className="w-full p-2 border rounded" value={formData.loan.guarantorName} onChange={(e) => handleChange('loan', 'guarantorName', e.target.value)} />)}
+                                    </div>
+                                    <div><label className="text-xs font-bold text-gray-500">(7) 特約</label><input type="text" className="w-full p-2 border rounded" value={formData.loan.specialCondition} onChange={(e) => handleChange('loan', 'specialCondition', e.target.value)} /></div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-orange-500">
+                                <h2 className="font-bold text-lg border-b pb-2">3. 返済状況</h2>
+                                <div className="flex gap-4 mb-2"><label><input type="radio" name="repayment" checked={formData.loan.repaymentStatus === 'none'} onChange={() => handleChange('loan', 'repaymentStatus', 'none')} /> 全部未返済</label><label><input type="radio" name="repayment" checked={formData.loan.repaymentStatus === 'partial'} onChange={() => handleChange('loan', 'repaymentStatus', 'partial')} /> 一部返済あり</label></div>
+                                {formData.loan.repaymentStatus === 'partial' && (
+                                    <div className="space-y-2">
+                                        {formData.loan.repaymentHistory.map((item, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center"><input type="date" className="w-1/3 p-1 border rounded text-xs" value={item.date} onChange={(e) => handleHistoryChange(idx, 'date', e.target.value)} /><input type="number" placeholder="金額" className="w-1/3 p-1 border rounded text-xs" value={item.amount} onChange={(e) => handleHistoryChange(idx, 'amount', e.target.value)} /><select className="w-1/4 p-1 border rounded text-xs" value={item.type} onChange={(e) => handleHistoryChange(idx, 'type', e.target.value)}><option>元金</option><option>利息</option></select><button onClick={() => removeHistoryRow(idx)}><Trash2 className="w-4 h-4 text-red-500"/></button></div>
+                                        ))}<button onClick={addHistoryRow} className="text-xs flex items-center gap-1 text-blue-600"><Plus className="w-3 h-3"/> 行を追加</button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-purple-500">
+                                <h2 className="font-bold text-lg border-b pb-2">4. 費用・提出先</h2>
+                                <div><label className="text-xs font-bold text-gray-500">提出先裁判所</label><div className="flex gap-2"><input type="text" className="w-full p-2 border rounded" value={formData.courtName} onChange={(e) => handleRootChange('courtName', e.target.value)} /><span className="whitespace-nowrap pt-2">簡易裁判所</span></div><p className="text-xs text-orange-600 mt-1">{jurisdictionMessage}</p></div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500">①申立手数料</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.fee} onChange={(e) => handleChange('costs', 'fee', e.target.value)} placeholder="自動計算" />
+                                    <label className="text-xs font-bold text-gray-500">②支払督促正本送達費用</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.serveCost} onChange={(e) => handleChange('costs', 'serveCost', e.target.value)} />
+                                    <label className="text-xs font-bold text-gray-500">③支払督促発付通知費用</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.noticeCost} onChange={(e) => handleChange('costs', 'noticeCost', e.target.value)} />
+                                    <label className="text-xs font-bold text-gray-500">④申立書作成及び提出費用</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.createCost} onChange={(e) => handleChange('costs', 'createCost', e.target.value)} />
+                                    <label className="text-xs font-bold text-gray-500">⑤資格証明手数料</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.certCost} onChange={(e) => handleChange('costs', 'certCost', e.target.value)} />
+                                </div>
+                                <div><label className="text-xs font-bold text-gray-500">添付書類</label><div className="flex gap-2 mt-1"><label className="flex items-center gap-1"><input type="checkbox" checked={formData.attachments.cert} onChange={(e) => setFormData(prev => ({...prev, attachments: {...prev.attachments, cert: e.target.checked}}))} />資格証明書</label></div></div>
+                            </div>
+                        </div>
+
+                        {/* プレビュー */}
+                        <div className="w-full lg:w-2/3 bg-gray-200 lg:bg-transparent overflow-x-auto print:bg-white print:p-0 print:w-full print:block">
+                            <div className="print-pages-container">
+                                {/* 1ページ目：申立書本紙 */}
+                                <div className="page bg-white shadow-lg p-12 text-black relative mb-8 print:mb-0 print:shadow-none print:w-full">
+                                    <h1 className="text-2xl font-bold text-center mb-8 tracking-widest">支払督促申立書</h1>
+                                    <div className="text-right mb-4">{toJapaneseEra(formData.date)}</div>
+                                    <div className="mb-8"><div className="border-b border-black inline-block min-w-[150px] text-center">{formData.courtName}</div> 簡易裁判所　裁判所書記官　殿</div>
+                                    <div className="mb-8 pl-8 relative"><div>申立人（債権者）</div><div className="text-xl ml-32 -mt-7 border-b border-black inline-block min-w-[200px] text-center">{formData.creditor.name}</div><span className="ml-4">印</span></div>
+                                    <div className="mb-4"><span className="inline-block w-24">事件名</span>貸金　　請求事件</div>
+                                    <div className="mb-4"><span className="inline-block w-32">当事者の表示</span>別紙当事者目録記載のとおり</div>
+                                    <div className="mb-4"><span className="inline-block w-40">請求の趣旨及び原因</span>別紙請求の趣旨及び原因記載のとおり</div>
+                                    <div className="my-8 mx-4 p-4">「債務者は、【<CheckBox checked={formData.loan.hasGuarantor === 'yes'} />連帯して】債権者に対し、請求の趣旨記載の金額を支払え」<br/>との支払督促を求める。</div>
+                                    <div className="mb-8">
+                                        <div>申立手続費用 金 <span className="inline-block w-32 text-right border-b border-black">{formatCurrency(getTotalCosts())}</span> 円</div>
+                                        <div className="ml-8 text-sm mt-2">
+                                            <div className="font-bold">内　訳</div>
+                                            <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>①申立手数料</span><span>{formatCurrency(formData.costs.fee)} 円</span></div>
+                                            <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>②支払督促正本送達費用</span><span>{formatCurrency(formData.costs.serveCost)} 円</span></div>
+                                            <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>③支払督促発付通知費用</span><span>{formatCurrency(formData.costs.noticeCost)} 円</span></div>
+                                            <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>④申立書作成及び提出費用</span><span>{formatCurrency(formData.costs.createCost)} 円</span></div>
+                                            <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>⑤資格証明手数料</span><span>{formatCurrency(formData.costs.certCost)} 円</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="mb-8 ml-8">
+                                        <div className="flex w-96"><span className="w-32">価額</span><span>金 {formatCurrency(getTotalClaim())} 円</span></div>
+                                        <div className="flex w-96"><span className="w-32">手数料額</span><span>金 {formatCurrency(formData.costs.fee)} 円</span></div>
+                                    </div>
+                                    <div>
+                                        <div>添付書類</div>
+                                        <div className="grid grid-cols-2 ml-4 gap-2">
+                                            <div><CheckBox checked={formData.attachments.cert} label="資格証明書" /></div>
+                                            <div><CheckBox checked={false} label="　　　　　" /></div>
+                                            <div><CheckBox checked={false} label="　　　　　" /></div>
+                                            <div><CheckBox checked={false} label="　　　　　" /></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 2ページ目：別紙 当事者目録 */}
+                                <div className="page bg-white shadow-lg p-12 text-black relative mb-8 print:mb-0 print:shadow-none print:w-full">
+                                    <div className="text-center mb-8">（別紙）</div>
+                                    <h2 className="text-2xl font-bold text-center mb-12 tracking-widest">当 事 者 目 録</h2>
+                                    <div className="mb-12">
+                                        <div className="flex justify-between items-end mb-2"><div>住所（所在地）〒 {formData.creditor.postalCode}</div><div className="text-xs">（送達場所）</div></div>
+                                        <div className="pl-4 mb-4 min-h-[3rem]">{formData.creditor.address}</div>
+                                        <div className="mb-4">債権者（氏名、名称及び代表者の資格氏名）</div>
+                                        <div className="pl-4 mb-4 text-lg font-bold min-h-[2rem]">{formData.creditor.name}</div>
+                                        <div className="flex gap-8 pl-4"><div>電　話　　{formData.creditor.phone}</div><div>ＦＡＸ　　{formData.creditor.fax}</div></div>
+                                    </div>
+                                    <hr className="border-gray-400 mb-12" />
+                                    <div className="mb-12">
+                                        <div className="mb-2">住所（所在地）〒 {formData.debtor.postalCode}</div>
+                                        <div className="pl-4 mb-4 min-h-[3rem]">{formData.debtor.address}</div>
+                                        <div className="mb-4">債務者（氏名、名称及び代表者の資格氏名）</div>
+                                        <div className="pl-4 mb-4 text-lg font-bold min-h-[2rem]">{formData.debtor.name}</div>
+                                        <div className="flex gap-8 pl-4"><div>電　話　　{formData.debtor.phone}</div><div>ＦＡＸ　　{formData.debtor.fax}</div></div>
+                                    </div>
+                                </div>
+
+                                {/* 3ページ目：別紙 請求の趣旨及び原因 */}
+                                <div className="page bg-white shadow-lg p-12 text-black relative print:shadow-none print:w-full">
+                                    <div className="text-center mb-4">（別紙）</div>
+                                    <h2 className="text-xl font-bold text-center mb-8 tracking-widest">請 求 の 趣 旨 及 び 原 因</h2>
+                                    <div className="mb-8">
+                                        <div className="font-bold border-b border-black inline-block mb-2">請求の趣旨</div>
+                                        <div className="pl-4">
+                                            <div className="flex mb-1"><span className="w-8">１</span><div>金　{formatCurrency(getTotalClaim())}　円</div></div>
+                                            <div className="pl-8 text-sm mb-4">（内訳　残元金　{formatCurrency(formData.claim.principal)}　円　利息　{formatCurrency(formData.claim.interest)}　円　遅延損害金　{formatCurrency(formData.claim.delayDamages)}　円）</div>
+                                            <div className="flex mb-1">
+                                                <span className="w-8">２</span>
+                                                <div className="leading-relaxed">
+                                                    （<CheckBox checked={true} />上記金額／<CheckBox checked={false} />上記金額の内金　　　円）に対する<br/>
+                                                    （<CheckBox checked={formData.loan.hasDeadline === 'no'} />支払督促送達日の翌日／<CheckBox checked={formData.loan.hasDeadline === 'yes'} /> {toJapaneseEra(formData.loan.hasDeadline === 'yes' ? formData.loan.deadlineDate : '')}）<br/>
+                                                    から完済まで、年 {formData.claim.delayDamagesRate} ％の割合による遅延損害金
+                                                </div>
+                                            </div>
+                                            <div className="flex mt-4"><span className="w-8">３</span><div>金　{formatCurrency(getTotalCosts())}　円（申立手続費用）</div></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="font-bold border-b border-black inline-block mb-2">請求の原因</div>
+                                        <div className="pl-4 text-sm leading-relaxed">
+                                            <div className="flex mb-2"><span className="w-8">１</span><div>債権者は、債務者に対し、以下のとおり、金員を貸し付けた。</div></div>
+                                            <div className="pl-8 space-y-1 mb-4">
+                                                <div>（１）貸付日　　　{toJapaneseEra(formData.loan.date)}</div>
+                                                <div>（２）貸付金額　　金　{formatCurrency(formData.loan.amount)}　円</div>
+                                                <div>（３）利息の定め　　<CheckBox checked={formData.loan.hasInterest === 'yes'} label={`あり（年 ${formData.loan.interestRate} ％）`} /><br/><span className="ml-24"><CheckBox checked={formData.loan.hasInterest === 'no'} label="なし" /></span></div>
+                                                <div>
+                                                    （４）返済期の定め<br/>
+                                                    <span className="ml-8"><CheckBox checked={formData.loan.hasDeadline === 'yes'} label={`あり（ ${toJapaneseEra(formData.loan.deadlineDate)} ）`} /></span><br/>
+                                                    <span className="ml-8"><CheckBox checked={formData.loan.hasDeadline === 'no'} label={`なし（ ${toJapaneseEra(formData.loan.deadlineNoticeDate1)}、${toJapaneseEra(formData.loan.deadlineNoticeDate2)} を期限として、返還の催告をした。）`} /></span>
+                                                </div>
+                                                <div>（５）遅延損害金の定め　<CheckBox checked={formData.loan.hasDelayDamages === 'yes'} label={`あり（年 ${formData.loan.delayDamagesRate} ％）`} /><br/><span className="ml-36"><CheckBox checked={formData.loan.hasDelayDamages === 'no'} label="なし" /></span></div>
+                                                <div>（６）書面による連帯保証<br/><span className="ml-4"><CheckBox checked={formData.loan.hasGuarantor === 'yes'} label={`あり　連帯保証人【（□債務者　${formData.loan.guarantorName}　□　　　　　　　　）】`} /></span><br/><span className="ml-4"><CheckBox checked={formData.loan.hasGuarantor === 'no'} label="なし" /></span></div>
+                                                <div>（７）その他の特約　　{formData.loan.specialCondition}</div>
+                                            </div>
+                                            <div className="flex mb-4"><span className="w-8">２</span><div>債務者は、上記貸付金について、<br/>【<CheckBox checked={formData.loan.repaymentStatus === 'none'} label="全部返済していない" />／<CheckBox checked={formData.loan.repaymentStatus === 'partial'} label="別紙のとおり返済した" />】。</div></div>
+                                            <div>（その他の参考事項は以下のとおり）</div>
+                                            {formData.loan.repaymentStatus === 'partial' && (
+                                                <div className="mt-4">
+                                                    <div>（別紙）</div>
+                                                    <table className="w-full border-collapse border border-black mt-2 text-xs">
+                                                        <thead><tr className="bg-gray-100"><th className="border border-black p-1">返済年月日</th><th className="border border-black p-1">返済金額（円）</th><th className="border border-black p-1">元利の別</th></tr></thead>
+                                                        <tbody>
+                                                            {formData.loan.repaymentHistory.map((item, i) => (<tr key={i}><td className="border border-black p-1 text-center">{toJapaneseEra(item.date)}</td><td className="border border-black p-1 text-right">{formatCurrency(item.amount)}</td><td className="border border-black p-1 text-center">{item.type}</td></tr>))}
+                                                            {[...Array(Math.max(0, 5 - formData.loan.repaymentHistory.length))].map((_, i) => (<tr key={`empty-${i}`}><td className="border border-black p-1 h-6"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td></tr>))}
+                                                            <tr className="font-bold"><td className="border border-black p-1 text-center">合計</td><td className="border border-black p-1 text-right">{formatCurrency(formData.loan.repaymentHistory.reduce((sum, item) => sum + (parseInt(item.amount)||0), 0))}</td><td className="border border-black p-1"></td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
