@@ -1,1006 +1,1047 @@
-import React, { useState, useEffect } from 'react';
-import { Printer, FileText, RotateCcw, Search, Plus, Trash2, Calculator } from 'lucide-react';
-
-export default function App() {
-    // 裁判所管轄データ (CSVから抽出・整形)
-    const JURISDICTION_DATA = [
-        { court: "札幌", keywords: ["札幌市", "江別市", "千歳市", "恵庭市", "北広島市", "石狩市", "石狩郡当別町", "石狩郡新篠津村"] },
-        { court: "浦河", keywords: ["浦河郡浦河町", "様似郡様似町", "幌泉郡えりも町", "日高郡新ひだか町", "三石郡", "三石"] },
-        { court: "静内", keywords: ["沙流郡日高町", "沙流郡平取町", "新冠郡新冠町", "日高郡新ひだか町", "静内郡", "静内"] },
-        { court: "苫小牧", keywords: ["苫小牧市", "勇払郡厚真町", "勇払郡安平町", "勇払郡むかわ町"] },
-        { court: "室蘭", keywords: ["室蘭市", "登別市", "白老郡白老町"] },
-        { court: "伊達", keywords: ["伊達市", "有珠郡壮瞥町", "虻田郡豊浦町", "虻田郡洞爺湖町"] },
-        { court: "岩見沢", keywords: ["岩見沢市", "美唄市", "三笠市", "夕張郡由仁町", "夕張郡長沼町", "夕張郡栗山町", "空知郡南幌町", "樺戸郡月形町"] },
-        { court: "夕張", keywords: ["夕張市"] },
-        { court: "滝川", keywords: ["滝川市", "砂川市", "赤平市", "芦別市", "歌志内市", "空知郡奈井江町", "空知郡上砂川町", "樺戸郡浦臼町", "樺戸郡新十津川町", "雨竜郡雨竜町"] },
-        { court: "小樽", keywords: ["小樽市", "余市郡仁木町", "余市郡余市町", "余市郡赤井川村", "古平郡古平町", "積丹郡積丹町"] },
-        { court: "岩内", keywords: ["岩内郡共和町", "岩内郡岩内町", "古宇郡泊村", "古宇郡神恵内村"] },
-        { court: "倶知安", keywords: ["虻田郡倶知安町", "虻田郡京極町", "虻田郡喜茂別町", "虻田郡留寿都村", "虻田郡ニセコ町", "虻田郡真狩村", "磯谷郡蘭越町"] },
-        { court: "函館", keywords: ["函館市", "北斗市", "亀田郡七飯町", "上磯郡木古内町", "上磯郡知内町", "茅部郡鹿部町", "茅部郡森町"] },
-        { court: "八雲", keywords: ["二海郡八雲町", "山越郡長万部町", "瀬棚郡今金町"] },
-        { court: "松前", keywords: ["松前郡松前町", "松前郡福島町"] },
-        { court: "江差", keywords: ["檜山郡江差町", "檜山郡上ノ国町", "檜山郡厚沢部町", "爾志郡乙部町", "奥尻郡奥尻町"] },
-        { court: "寿都", keywords: ["寿都郡寿都町", "寿都郡黒松内町", "島牧郡島牧村"] },
-        { court: "旭川", keywords: ["旭川市", "富良野市", "上川郡鷹栖町", "上川郡東神楽町", "上川郡当麻町", "上川郡比布町", "上川郡愛別町", "上川郡上川町", "上川郡東川町", "上川郡美瑛町", "空知郡上富良野町", "空知郡中富良野町", "空知郡南富良野町", "勇払郡占冠村", "上川郡和寒町", "上川郡剣淵町", "上川郡下川町", "雨竜郡幌加内町"] },
-        { court: "深川", keywords: ["深川市", "雨竜郡妹背牛町", "雨竜郡秩父別町", "雨竜郡北竜町", "雨竜郡沼田町"] },
-        { court: "名寄", keywords: ["名寄市", "士別市", "中川郡美深町", "中川郡音威子府村", "中川郡中川町"] },
-        { court: "紋別", keywords: ["紋別市", "紋別郡滝上町", "紋別郡興部町", "紋別郡西興部村", "紋別郡雄武町"] },
-        { court: "留萌", keywords: ["留萌市", "増毛郡増毛町", "留萌郡小平町"] },
-        { court: "羽幌", keywords: ["苫前郡苫前町", "苫前郡羽幌町", "苫前郡初山別村"] },
-        { court: "天塩", keywords: ["天塩郡遠別町", "天塩郡天塩町", "天塩郡幌延町"] },
-        { court: "稚内", keywords: ["稚内市", "宗谷郡猿払村", "利尻郡利尻町", "利尻郡利尻富士町", "礼文郡礼文町"] },
-        { court: "浜頓別", keywords: ["枝幸郡浜頓別町", "枝幸郡中頓別町", "枝幸郡枝幸町"] },
-        { court: "釧路", keywords: ["釧路市", "釧路郡釧路町", "厚岸郡厚岸町", "厚岸郡浜中町", "川上郡標茶町", "川上郡弟子屈町", "阿寒郡鶴居村", "白糠郡白糠町"] },
-        { court: "根室", keywords: ["根室市"] },
-        { court: "標津", keywords: ["標津郡中標津町", "標津郡標津町", "目梨郡羅臼町", "野付郡別海町"] },
-        { court: "帯広", keywords: ["帯広市", "河東郡音更町", "河東郡士幌町", "河東郡上士幌町", "河東郡鹿追町", "上川郡新得町", "上川郡清水町", "河西郡芽室町", "河西郡中札内村", "河西郡更別村", "広尾郡大樹町", "広尾郡広尾町", "中川郡幕別町", "中川郡池田町", "中川郡豊頃町", "中川郡本別町"] },
-        { court: "足寄", keywords: ["足寄郡足寄町", "足寄郡陸別町"] },
-        { court: "北見", keywords: ["北見市", "常呂郡訓子府町", "常呂郡置戸町"] },
-        { court: "遠軽", keywords: ["紋別郡遠軽町", "紋別郡湧別町", "常呂郡佐呂間町"] },
-        { court: "網走", keywords: ["網走市", "網走郡大空町", "斜里郡小清水町", "斜里郡清里町", "斜里郡斜里町"] },
-        { court: "青森", keywords: ["青森市", "東津軽郡平内町", "東津軽郡今別町", "東津軽郡蓬田村", "東津軽郡外ヶ浜町"] },
-        { court: "むつ", keywords: ["むつ市", "下北郡大間町", "下北郡東通村", "下北郡風間浦村", "下北郡佐井村", "上北郡横浜町"] },
-        { court: "野辺地", keywords: ["上北郡野辺地町", "上北郡七戸町", "上北郡東北町", "上北郡六ヶ所村"] },
-        { court: "弘前", keywords: ["弘前市", "黒石市", "平川市", "中津軽郡西目屋村", "南津軽郡藤崎町", "南津軽郡大鰐町", "南津軽郡田舎館村", "北津軽郡板柳町"] },
-        { court: "五所川原", keywords: ["五所川原市", "つがる市", "北津軽郡鶴田町", "北津軽郡中泊町", "西津軽郡鰺ヶ沢町", "西津軽郡深浦町"] },
-        { court: "八戸", keywords: ["八戸市", "三戸郡三戸町", "三戸郡五戸町", "三戸郡田子町", "三戸郡南部町", "三戸郡階上町", "三戸郡新郷村", "上北郡おいらせ町"] },
-        { court: "十和田", keywords: ["十和田市", "三沢市", "上北郡六戸町"] },
-        { court: "仙台", keywords: ["仙台市", "塩竈市", "名取市", "多賀城市", "岩沼市", "富谷市", "亘理郡亘理町", "亘理郡山元町", "黒川郡大和町", "黒川郡大郷町", "黒川郡大衡村", "宮城郡松島町", "宮城郡七ヶ浜町", "宮城郡利府町"] },
-        { court: "大河原", keywords: ["白石市", "角田市", "柴田郡大河原町", "柴田郡村田町", "柴田郡柴田町", "柴田郡川崎町", "伊具郡丸森町", "刈田郡蔵王町", "刈田郡七ヶ宿町"] },
-        { court: "古川", keywords: ["大崎市", "加美郡色麻町", "加美郡加美町", "遠田郡涌谷町", "遠田郡美里町"] },
-        { court: "中新田", keywords: ["加美郡色麻町", "加美郡加美町"] }, // ※古川と重複あり、実際の運用では詳細住所が必要だが、リスト順で古川優先
-        { court: "石巻", keywords: ["石巻市", "東松島市", "牡鹿郡女川町"] },
-        { court: "登米", keywords: ["登米市"] },
-        { court: "気仙沼", keywords: ["気仙沼市", "本吉郡南三陸町"] },
-        { court: "盛岡", keywords: ["盛岡市", "八幡平市", "滝沢市", "岩手郡雫石町", "岩手郡葛巻町", "岩手郡岩手町", "紫波郡紫波町", "紫波郡矢巾町"] },
-        { court: "花巻", keywords: ["花巻市"] },
-        { court: "二戸", keywords: ["二戸市", "二戸郡一戸町", "九戸郡軽米町", "九戸郡九戸村"] },
-        { court: "久慈", keywords: ["久慈市", "下閉伊郡普代村", "九戸郡野田村", "九戸郡洋野町"] },
-        { court: "遠野", keywords: ["遠野市"] },
-        { court: "釜石", keywords: ["釜石市", "上閉伊郡大槌町"] },
-        { court: "宮古", keywords: ["宮古市", "下閉伊郡山田町", "下閉伊郡岩泉町", "下閉伊郡田野畑村"] },
-        { court: "一関", keywords: ["一関市", "西磐井郡平泉町"] },
-        { court: "大船渡", keywords: ["大船渡市", "陸前高田市", "気仙郡住田町"] },
-        { court: "水沢", keywords: ["奥州市", "胆沢郡金ケ崎町"] },
-        { court: "北上", keywords: ["北上市", "和賀郡西和賀町"] },
-        { court: "秋田", keywords: ["秋田市", "潟上市", "南秋田郡五城目町", "南秋田郡八郎潟町", "南秋田郡井川町", "南秋田郡大潟村"] },
-        { court: "男鹿", keywords: ["男鹿市"] },
-        { court: "能代", keywords: ["能代市", "山本郡藤里町", "山本郡三種町", "山本郡八峰町"] },
-        { court: "本荘", keywords: ["由利本荘市", "にかほ市"] },
-        { court: "大館", keywords: ["大館市", "北秋田市", "北秋田郡上小阿仁村"] },
-        { court: "鹿角", keywords: ["鹿角市", "鹿角郡小坂町"] },
-        { court: "横手", keywords: ["横手市"] },
-        { court: "湯沢", keywords: ["湯沢市", "雄勝郡羽後町", "雄勝郡東成瀬村"] },
-        { court: "大曲", keywords: ["大仙市", "仙北市", "仙北郡美郷町"] },
-        { court: "山形", keywords: ["山形市", "寒河江市", "上山市", "村山市", "天童市", "東根市", "尾花沢市", "東村山郡山辺町", "東村山郡中山町", "西村山郡河北町", "西村山郡西川町", "西村山郡朝日町", "西村山郡大江町", "北村山郡大石田町"] },
-        { court: "新庄", keywords: ["新庄市", "最上郡金山町", "最上郡最上町", "最上郡舟形町", "最上郡真室川町", "最上郡大蔵村", "最上郡鮭川村", "最上郡戸沢村"] },
-        { court: "米沢", keywords: ["米沢市", "南陽市", "東置賜郡高畠町", "東置賜郡川西町"] },
-        { court: "長井", keywords: ["長井市", "西置賜郡小国町", "西置賜郡白鷹町", "西置賜郡飯豊町"] },
-        { court: "赤湯", keywords: ["南陽市"] }, // ※米沢の管轄だが支部がある場合考慮
-        { court: "鶴岡", keywords: ["鶴岡市", "東田川郡三川町"] },
-        { court: "酒田", keywords: ["酒田市", "飽海郡遊佐町", "東田川郡庄内町"] },
-        { court: "福島", keywords: ["福島市", "二本松市", "伊達市", "伊達郡桑折町", "伊達郡国見町", "伊達郡川俣町", "安達郡大玉村"] },
-        { court: "相馬", keywords: ["相馬市", "南相馬市", "相馬郡新地町", "相馬郡飯舘村"] },
-        { court: "郡山", keywords: ["郡山市", "須賀川市", "田村市", "本宮市", "岩瀬郡鏡石町", "岩瀬郡天栄村", "田村郡三春町", "田村郡小野町"] },
-        { court: "白河", keywords: ["白河市", "西白河郡西郷村", "西白河郡泉崎村", "西白河郡中島村", "西白河郡矢吹町", "東白川郡棚倉町", "東白川郡矢祭町", "東白川郡塙町", "東白川郡鮫川村", "石川郡石川町", "石川郡玉川村", "石川郡平田村", "石川郡浅川町", "石川郡古殿町"] },
-        { court: "会津若松", keywords: ["会津若松市", "喜多方市", "耶麻郡北塩原村", "耶麻郡西会津町", "耶麻郡磐梯町", "耶麻郡猪苗代町", "河沼郡会津坂下町", "河沼郡湯川村", "河沼郡柳津町", "大沼郡三島町", "大沼郡金山町", "大沼郡昭和村", "大沼郡会津美里町"] },
-        { court: "田島", keywords: ["南会津郡下郷町", "南会津郡檜枝岐村", "南会津郡只見町", "南会津郡南会津町"] },
-        { court: "いわき", keywords: ["いわき市", "双葉郡広野町", "双葉郡楢葉町", "双葉郡富岡町", "双葉郡川内村", "双葉郡大熊町", "双葉郡双葉町", "双葉郡浪江町", "双葉郡葛尾村"] },
-        { court: "水戸", keywords: ["水戸市", "ひたちなか市", "那珂市", "鉾田市", "小美玉市", "東茨城郡茨城町", "東茨城郡大洗町", "東茨城郡城里町", "那珂郡東海村"] },
-        { court: "笠間", keywords: ["笠間市", "桜川市"] }, // 桜川は真壁含む
-        { court: "常陸太田", keywords: ["常陸太田市", "常陸大宮市", "久慈郡大子町"] },
-        { court: "日立", keywords: ["日立市", "高萩市", "北茨城市"] },
-        { court: "土浦", keywords: ["土浦市", "石岡市", "つくば市", "かすみがうら市", "つくばみらい市", "稲敷郡阿見町", "稲敷郡美浦村"] },
-        { court: "龍ケ崎", keywords: ["龍ケ崎市", "取手市", "牛久市", "守谷市", "稲敷市", "稲敷郡河内町", "北相馬郡利根町"] },
-        { court: "麻生", keywords: ["行方市", "潮来市", "神栖市", "鹿嶋市"] },
-        { court: "下妻", keywords: ["下妻市", "常総市", "結城市", "筑西市", "坂東市", "結城郡八千代町", "猿島郡五霞町", "猿島郡境町"] },
-        { court: "古河", keywords: ["古河市"] },
-        { court: "宇都宮", keywords: ["宇都宮市", "鹿沼市", "日光市", "さくら市", "那須烏山市", "下野市", "河内郡上三川町", "塩谷郡高根沢町"] },
-        { court: "真岡", keywords: ["真岡市", "芳賀郡益子町", "芳賀郡茂木町", "芳賀郡市貝町", "芳賀郡芳賀町"] },
-        { court: "大田原", keywords: ["大田原市", "那須塩原市", "矢板市", "那須郡那須町", "那須郡那珂川町", "塩谷郡塩谷町"] },
-        { court: "栃木", keywords: ["栃木市", "小山市", "下都賀郡壬生町", "下都賀郡野木町"] },
-        { court: "足利", keywords: ["足利市", "佐野市"] },
-        { court: "前橋", keywords: ["前橋市", "渋川市", "北群馬郡榛東村", "北群馬郡吉岡町"] },
-        { court: "伊勢崎", keywords: ["伊勢崎市", "佐波郡玉村町"] },
-        { court: "高崎", keywords: ["高崎市", "安中市", "藤岡市", "多野郡上野村", "多野郡神流町", "甘楽郡下仁田町", "甘楽郡南牧村", "甘楽郡甘楽町"] },
-        { court: "富岡", keywords: ["富岡市"] }, // ※甘楽郡も含む場合あるが上記高崎に割り当てられる場合も。詳細要確認だが主要都市で
-        { court: "中之条", keywords: ["吾妻郡中之条町", "吾妻郡長野原町", "吾妻郡嬬恋村", "吾妻郡草津町", "吾妻郡高山村", "吾妻郡東吾妻町"] },
-        { court: "沼田", keywords: ["沼田市", "利根郡片品村", "利根郡川場村", "利根郡昭和村", "利根郡みなかみ町"] },
-        { court: "太田", keywords: ["太田市", "館林市", "邑楽郡板倉町", "邑楽郡明和町", "邑楽郡千代田町", "邑楽郡大泉町", "邑楽郡邑楽町"] },
-        { court: "桐生", keywords: ["桐生市", "みどり市"] },
-        { court: "さいたま", keywords: ["さいたま市", "蕨市", "戸田市", "朝霞市", "志木市", "和光市", "新座市", "蓮田市", "白岡市", "北足立郡伊奈町"] },
-        { court: "川口", keywords: ["川口市"] },
-        { court: "越谷", keywords: ["越谷市", "春日部市", "草加市", "八潮市", "三郷市", "吉川市", "北葛飾郡松伏町"] },
-        { court: "川越", keywords: ["川越市", "富士見市", "坂戸市", "鶴ヶ島市", "ふじみ野市", "入間郡三芳町", "入間郡毛呂山町", "入間郡越生町", "比企郡川島町", "比企郡鳩山町"] },
-        { court: "熊谷", keywords: ["熊谷市", "行田市", "東松山市", "羽生市", "鴻巣市", "深谷市", "本庄市", "桶川市", "北本市", "比企郡滑川町", "比企郡嵐山町", "比企郡小川町", "比企郡吉見町", "比企郡ときがわ町", "秩父郡東秩父村", "児玉郡美里町", "児玉郡神川町", "児玉郡上里町", "大里郡寄居町"] },
-        { court: "秩父", keywords: ["秩父市", "秩父郡横瀬町", "秩父郡皆野町", "秩父郡長瀞町", "秩父郡小鹿野町"] },
-        { court: "所沢", keywords: ["所沢市", "飯能市", "狭山市", "入間市", "日高市"] },
-        { court: "久喜", keywords: ["久喜市", "加須市", "幸手市", "南埼玉郡宮代町", "北葛飾郡杉戸町"] },
-        { court: "千葉", keywords: ["千葉市", "習志野市", "市原市", "八千代市"] },
-        { court: "佐倉", keywords: ["佐倉市", "成田市", "四街道市", "八街市", "印西市", "白井市", "富里市", "印旛郡酒々井町", "印旛郡栄町"] },
-        { court: "一宮", keywords: ["長生郡一宮町", "茂原市", "長生郡睦沢町", "長生郡長生村", "長生郡白子町", "長生郡長柄町", "長生郡長南町"] }, // ※千葉一宮
-        { court: "松戸", keywords: ["松戸市", "野田市", "柏市", "流山市", "我孫子市", "鎌ケ谷市"] },
-        { court: "木更津", keywords: ["木更津市", "君津市", "富津市", "袖ケ浦市"] },
-        { court: "館山", keywords: ["館山市", "鴨川市", "南房総市", "安房郡鋸南町"] },
-        { court: "八日市場", keywords: ["匝瑳市", "香取郡多古町", "山武郡横芝光町", "旭市", "銚子市", "東庄町"] }, // 簡略化
-        { court: "佐原", keywords: ["香取市", "香取郡神崎町", "香取郡東庄町"] },
-        { court: "銚子", keywords: ["銚子市", "旭市"] },
-        { court: "東金", keywords: ["東金市", "山武市", "大網白里市", "山武郡九十九里町", "山武郡芝山町"] },
-        { court: "市川", keywords: ["市川市", "船橋市", "浦安市"] },
-        { court: "東京", keywords: ["千代田区", "中央区", "港区", "新宿区", "文京区", "台東区", "墨田区", "江東区", "品川区", "目黒区", "大田区", "世田谷区", "渋谷区", "中野区", "杉並区", "豊島区", "北区", "荒川区", "板橋区", "練馬区", "足立区", "葛飾区", "江戸川区", "三宅村", "御蔵島村", "小笠原村"] },
-        { court: "八丈島", keywords: ["八丈町", "青ヶ島村"] },
-        { court: "伊豆大島", keywords: ["大島町", "利島村", "新島村", "神津島村"] },
-        { court: "立川", keywords: ["立川市", "武蔵野市", "三鷹市", "府中市", "昭島市", "調布市", "小金井市", "小平市", "東村山市", "国分寺市", "国立市", "狛江市", "東大和市", "清瀬市", "東久留米市", "武蔵村山市", "西東京市"] },
-        { court: "八王子", keywords: ["八王子市", "日野市", "多摩市", "稲城市", "あきる野市", "羽村市", "福生市", "青梅市", "西多摩郡"] }, // 簡略
-        { court: "町田", keywords: ["町田市"] },
-        { court: "横浜", keywords: ["横浜市", "中区", "南区", "磯子区", "金沢区", "港南区", "港北区", "緑区", "青葉区", "都筑区", "神奈川区", "鶴見区", "保土ケ谷区", "旭区", "西区", "瀬谷区", "戸塚区", "泉区", "栄区"] }, // 区名も追加
-        { court: "川崎", keywords: ["川崎市"] },
-        { court: "相模原", keywords: ["相模原市"] },
-        { court: "横須賀", keywords: ["横須賀市", "鎌倉市", "逗子市", "三浦市", "三浦郡葉山町"] },
-        { court: "小田原", keywords: ["小田原市", "秦野市", "南足柄市", "中郡大磯町", "中郡二宮町", "足柄上郡", "足柄下郡"] },
-        { court: "厚木", keywords: ["厚木市", "大和市", "海老名市", "座間市", "綾瀬市", "愛甲郡愛川町", "愛甲郡清川村"] },
-        { court: "平塚", keywords: ["平塚市", "藤沢市", "茅ヶ崎市", "高座郡寒川町"] },
-        { court: "新潟", keywords: ["新潟市", "燕市", "西蒲原郡弥彦村", "五泉市", "東蒲原郡阿賀町", "佐渡市"] },
-        { court: "新津", keywords: ["新潟市秋葉区", "五泉市"] }, // 新潟簡裁に統合されている場合もあるが、csvデータに従うならあるかも
-        { court: "三条", keywords: ["三条市", "加茂市", "南蒲原郡田上町"] },
-        { court: "新発田", keywords: ["新発田市", "阿賀野市", "胎内市", "北蒲原郡聖籠町"] },
-        { court: "村上", keywords: ["村上市", "岩船郡関川村", "岩船郡粟島浦村"] },
-        { court: "長岡", keywords: ["長岡市", "小千谷市", "見附市", "三島郡出雲崎町", "魚沼市"] },
-        { court: "十日町", keywords: ["十日町市", "中魚沼郡津南町"] },
-        { court: "柏崎", keywords: ["柏崎市", "刈羽郡刈羽村"] },
-        { court: "南魚沼", keywords: ["南魚沼市", "南魚沼郡湯沢町"] },
-        { court: "高田", keywords: ["上越市", "妙高市"] },
-        { court: "糸魚川", keywords: ["糸魚川市"] },
-        { court: "富山", keywords: ["富山市", "滑川市", "中新川郡舟橋村", "中新川郡上市町", "中新川郡立山町"] },
-        { court: "魚津", keywords: ["魚津市", "黒部市", "下新川郡入善町", "下新川郡朝日町"] },
-        { court: "高岡", keywords: ["高岡市", "氷見市", "小矢部市", "射水市"] },
-        { court: "砺波", keywords: ["砺波市", "南砺市"] },
-        { court: "金沢", keywords: ["金沢市", "白山市", "野々市市", "河北郡津幡町", "河北郡内灘町", "かほく市"] },
-        { court: "小松", keywords: ["小松市", "加賀市", "能美市", "能美郡川北町"] },
-        { court: "七尾", keywords: ["七尾市", "羽咋市", "羽咋郡志賀町", "羽咋郡宝達志水町", "鹿島郡中能登町"] },
-        { court: "輪島", keywords: ["輪島市", "鳳珠郡穴水町", "鳳珠郡能登町"] },
-        { court: "珠洲", keywords: ["珠洲市"] },
-        { court: "福井", keywords: ["福井市", "あわら市", "坂井市", "吉田郡永平寺町", "大野市", "勝山市"] },
-        { court: "武生", keywords: ["越前市", "鯖江市", "今立郡池田町", "南条郡南越前町", "丹生郡越前町"] },
-        { court: "敦賀", keywords: ["敦賀市", "三方郡美浜町", "三方上中郡若狭町"] },
-        { court: "小浜", keywords: ["小浜市", "大飯郡高浜町", "大飯郡おおい町"] },
-        { court: "甲府", keywords: ["甲府市", "山梨市", "甲斐市", "笛吹市", "甲州市", "中央市", "中巨摩郡昭和町"] },
-        { court: "鰍沢", keywords: ["南アルプス市", "西八代郡市川三郷町", "南巨摩郡早川町", "南巨摩郡身延町", "南巨摩郡南部町", "南巨摩郡富士川町"] },
-        { court: "都留", keywords: ["都留市", "大月市", "上野原市", "南都留郡道志村", "南都留郡西桂町", "北都留郡小菅村", "北都留郡丹波山村"] },
-        { court: "富士吉田", keywords: ["富士吉田市", "南都留郡忍野村", "南都留郡山中湖村", "南都留郡鳴沢村", "南都留郡富士河口湖町"] },
-        { court: "長野", keywords: ["長野市", "須坂市", "上高井郡小布施町", "上高井郡高山村", "上水内郡信濃町", "上水内郡飯綱町", "上水内郡小川村"] },
-        { court: "飯山", keywords: ["飯山市", "中野市", "下高井郡山ノ内町", "下高井郡木島平村", "下高井郡野沢温泉村", "下水内郡栄村"] },
-        { court: "上田", keywords: ["上田市", "東御市", "小県郡長和町", "小県郡青木村"] },
-        { court: "佐久", keywords: ["小諸市", "佐久市", "南佐久郡小海町", "南佐久郡川上村", "南佐久郡南牧村", "南佐久郡南相木村", "南佐久郡北相木村", "南佐久郡佐久穂町", "北佐久郡軽井沢町", "北佐久郡御代田町", "北佐久郡立科町"] },
-        { court: "松本", keywords: ["松本市", "塩尻市", "安曇野市", "東筑摩郡麻績村", "東筑摩郡生坂村", "東筑摩郡山形村", "東筑摩郡朝日村", "東筑摩郡筑北村"] },
-        { court: "木曾福島", keywords: ["木曽郡上松町", "木曽郡南木曽町", "木曽郡木祖村", "木曽郡王滝村", "木曽郡大桑村", "木曽郡木曽町"] },
-        { court: "大町", keywords: ["大町市", "北安曇郡池田町", "北安曇郡松川村", "北安曇郡白馬村", "北安曇郡小谷村"] },
-        { court: "諏訪", keywords: ["岡谷市", "諏訪市", "茅野市", "諏訪郡下諏訪町", "諏訪郡富士見町", "諏訪郡原村"] },
-        { court: "飯田", keywords: ["飯田市", "下伊那郡松川町", "下伊那郡高森町", "下伊那郡阿南町", "下伊那郡阿智村", "下伊那郡平谷村", "下伊那郡根羽村", "下伊那郡下條村", "下伊那郡売木村", "下伊那郡天龍村", "下伊那郡泰阜村", "下伊那郡喬木村", "下伊那郡豊丘村", "下伊那郡大鹿村"] },
-        { court: "伊那", keywords: ["伊那市", "駒ヶ根市", "上伊那郡辰野町", "上伊那郡箕輪町", "上伊那郡飯島町", "上伊那郡南箕輪村", "上伊那郡中川村", "上伊那郡宮田村"] },
-        { court: "岐阜", keywords: ["岐阜市", "関市", "美濃市", "羽島市", "各務原市", "山県市", "瑞穂市", "本巣市", "羽島郡岐南町", "羽島郡笠松町", "本巣郡北方町"] },
-        { court: "郡上", keywords: ["郡上市"] },
-        { court: "大垣", keywords: ["大垣市", "海津市", "養老郡養老町", "不破郡垂井町", "不破郡関ケ原町", "安八郡神戸町", "安八郡輪之内町", "安八郡安八町", "揖斐郡揖斐川町", "揖斐郡大野町", "揖斐郡池田町"] },
-        { court: "多治見", keywords: ["多治見市", "瑞浪市", "土岐市"] },
-        { court: "中津川", keywords: ["中津川市", "恵那市"] },
-        { court: "御嵩", keywords: ["美濃加茂市", "可児市", "加茂郡坂祝町", "加茂郡富加町", "加茂郡川辺町", "加茂郡七宗町", "加茂郡八百津町", "加茂郡白川町", "加茂郡東白川村", "可児郡御嵩町"] },
-        { court: "高山", keywords: ["高山市", "飛騨市", "下呂市", "大野郡白川村"] },
-        { court: "静岡", keywords: ["静岡市葵区", "静岡市駿河区"] }, // 静岡は区で分かれる
-        { court: "清水", keywords: ["静岡市清水区"] },
-        { court: "沼津", keywords: ["沼津市", "御殿場市", "裾野市", "駿東郡清水町", "駿東郡長泉町", "駿東郡小山町"] },
-        { court: "熱海", keywords: ["熱海市", "伊東市"] },
-        { court: "三島", keywords: ["三島市", "伊豆市", "伊豆の国市", "田方郡函南町"] },
-        { court: "下田", keywords: ["下田市", "賀茂郡東伊豆町", "賀茂郡河津町", "賀茂郡南伊豆町", "賀茂郡松崎町", "賀茂郡西伊豆町"] },
-        { court: "富士", keywords: ["富士市", "富士宮市"] },
-        { court: "浜松", keywords: ["浜松市", "中区", "東区", "西区", "南区", "北区", "浜北区", "天竜区", "湖西市"] },
-        { court: "掛川", keywords: ["掛川市", "御前崎市", "菊川市"] },
-        { court: "磐田", keywords: ["磐田市", "袋井市", "周智郡森町"] },
-        { court: "島田", keywords: ["島田市", "焼津市", "藤枝市", "牧之原市", "榛原郡吉田町", "榛原郡川根本町"] },
-        { court: "名古屋", keywords: ["名古屋市", "豊明市", "日進市", "清須市", "北名古屋市", "愛知郡東郷町", "西春日井郡豊山町", "あま市", "海部郡大治町", "海部郡蟹江町", "海部郡飛島村", "瀬戸市", "尾張旭市", "長久手市", "津島市", "愛西市", "弥富市"] },
-        { court: "春日井", keywords: ["春日井市", "小牧市"] },
-        { court: "一宮", keywords: ["一宮市", "稲沢市"] }, // ※愛知一宮
-        { court: "犬山", keywords: ["犬山市", "江南市", "岩倉市", "丹羽郡大口町", "丹羽郡扶桑町"] },
-        { court: "半田", keywords: ["半田市", "常滑市", "東海市", "大府市", "知多市", "知多郡阿久比町", "知多郡東浦町", "知多郡南知多町", "知多郡美浜町", "知多郡武豊町"] },
-        { court: "岡崎", keywords: ["岡崎市", "額田郡幸田町"] },
-        { court: "安城", keywords: ["安城市", "碧南市", "刈谷市", "知立市", "高浜市"] },
-        { court: "豊田", keywords: ["豊田市", "みよし市"] },
-        { court: "豊橋", keywords: ["豊橋市", "豊川市", "蒲郡市", "田原市"] },
-        { court: "新城", keywords: ["新城市", "北設楽郡設楽町", "北設楽郡東栄町", "北設楽郡豊根村"] },
-        { court: "西尾", keywords: ["西尾市"] },
-        { court: "津", keywords: ["津市", "亀山市", "松阪市", "多気郡多気町", "多気郡明和町", "多気郡大台町"] },
-        { court: "伊賀", keywords: ["名張市", "伊賀市"] },
-        { court: "四日市", keywords: ["四日市市", "三重郡菰野町", "三重郡朝日町", "三重郡川越町", "鈴鹿市"] },
-        { court: "桑名", keywords: ["桑名市", "いなべ市", "桑名郡木曽岬町", "員弁郡東員町"] },
-        { court: "伊勢", keywords: ["伊勢市", "鳥羽市", "志摩市", "度会郡玉城町", "度会郡度会町", "度会郡大紀町", "度会郡南伊勢町"] },
-        { court: "熊野", keywords: ["尾鷲市", "熊野市", "北牟婁郡紀北町", "南牟婁郡御浜町", "南牟婁郡紀宝町"] },
-        { court: "大津", keywords: ["大津市", "草津市", "守山市", "栗東市", "甲賀市", "野洲市", "湖南市"] },
-        { court: "高島", keywords: ["高島市"] },
-        { court: "彦根", keywords: ["彦根市", "愛知郡愛荘町", "犬上郡豊郷町", "犬上郡甲良町", "犬上郡多賀町"] },
-        { court: "東近江", keywords: ["東近江市", "近江八幡市", "蒲生郡日野町", "蒲生郡竜王町"] },
-        { court: "長浜", keywords: ["長浜市", "米原市"] },
-        { court: "京都", keywords: ["京都市", "北区", "上京区", "左京区", "中京区", "東山区", "山科区", "下京区", "南区", "右京区", "西京区", "西京区", "伏見区", "向日市", "長岡京市", "乙訓郡大山崎町", "宇治市", "城陽市", "八幡市", "京田辺市", "久世郡久御山町", "綴喜郡井手町", "綴喜郡宇治田原町", "木津川市", "相楽郡笠置町", "相楽郡和束町", "相楽郡精華町", "相楽郡南山城村", "南丹市", "亀岡市", "船井郡京丹波町"] },
-        { court: "園部", keywords: ["南丹市", "亀岡市", "船井郡京丹波町"] }, // ※一部京都と重複するが支部管轄
-        { court: "宮津", keywords: ["宮津市", "京丹後市", "与謝郡伊根町", "与謝郡与謝野町"] },
-        { court: "舞鶴", keywords: ["舞鶴市"] },
-        { court: "福知山", keywords: ["福知山市", "綾部市"] },
-        { court: "大阪", keywords: ["大阪市", "北区", "都島区", "福島区", "此花区", "中央区", "西区", "港区", "大正区", "天王寺区", "浪速区", "西淀川区", "淀川区", "東淀川区", "東成区", "生野区", "旭区", "城東区", "鶴見区", "阿倍野区", "住之江区", "住吉区", "東住吉区", "平野区", "西成区", "豊中市", "池田市", "吹田市", "箕面市", "豊能郡豊能町", "豊能郡能勢町", "東大阪市", "八尾市"] },
-        { court: "堺", keywords: ["堺市", "堺区", "中区", "東区", "西区", "南区", "北区", "美原区", "高石市", "大阪狭山市"] },
-        { court: "岸和田", keywords: ["岸和田市", "泉大津市", "貝塚市", "泉佐野市", "和泉市", "泉南市", "阪南市", "泉北郡忠岡町", "泉南郡熊取町", "泉南郡田尻町", "泉南郡岬町"] },
-        { court: "富田林", keywords: ["富田林市", "河内長野市", "羽曳野市", "藤井寺市", "松原市", "柏原市", "南河内郡太子町", "南河内郡河南町", "南河内郡千早赤阪村"] },
-        { court: "枚方", keywords: ["枚方市", "守口市", "寝屋川市", "大東市", "門真市", "四條畷市", "交野市"] },
-        { court: "茨木", keywords: ["茨木市", "高槻市", "摂津市", "三島郡島本町"] },
-        { court: "佐野", keywords: ["泉佐野市", "泉南市", "阪南市", "泉南郡熊取町", "泉南郡田尻町", "泉南郡岬町"] }, // ※岸和田支部内佐野簡裁
-        { court: "羽曳野", keywords: ["羽曳野市", "松原市", "柏原市", "藤井寺市"] }, // ※富田林支部内羽曳野簡裁
-        { court: "神戸", keywords: ["神戸市", "東灘区", "灘区", "中央区", "兵庫区", "北区", "長田区", "須磨区", "垂水区", "西区", "三木市"] },
-        { court: "伊丹", keywords: ["伊丹市", "宝塚市", "川西市", "川辺郡猪名川町"] },
-        { court: "尼崎", keywords: ["尼崎市", "西宮市", "芦屋市"] },
-        { court: "明石", keywords: ["明石市", "神戸市西区"] }, // 西区は明石とも被る
-        { court: "柏原", keywords: ["丹波市"] },
-        { court: "篠山", keywords: ["丹波篠山市"] },
-        { court: "姫路", keywords: ["姫路市", "相生市", "加古川市", "赤穂市", "高砂市", "加西市", "宍粟市", "たつの市", "加古郡稲美町", "加古郡播磨町", "神崎郡市川町", "神崎郡福崎町", "神崎郡神河町", "揖保郡太子町", "赤穂郡上郡町", "佐用郡佐用町"] },
-        { court: "社", keywords: ["西脇市", "小野市", "加東市", "多可郡多可町"] },
-        { court: "龍野", keywords: ["たつの市", "宍粟市", "揖保郡太子町", "佐用郡佐用町"] }, // ※姫路支部内龍野簡裁
-        { court: "豊岡", keywords: ["豊岡市", "養父市", "朝来市", "美方郡香美町", "美方郡新温泉町"] },
-        { court: "洲本", keywords: ["洲本市", "淡路市", "南あわじ市"] },
-        { court: "奈良", keywords: ["奈良市", "大和郡山市", "天理市", "桜井市", "生駒市", "山辺郡山添村", "生駒郡平群町", "生駒郡三郷町", "生駒郡斑鳩町", "生駒郡安堵町", "磯城郡川西町", "磯城郡三宅町", "磯城郡田原本町", "宇陀市", "宇陀郡曽爾村", "宇陀郡御杖村"] },
-        { court: "葛城", keywords: ["大和高田市", "橿原市", "御所市", "香芝市", "葛城市", "高市郡高取町", "高市郡明日香村", "北葛城郡上牧町", "北葛城郡王寺町", "北葛城郡広陵町", "北葛城郡河合町"] },
-        { court: "五條", keywords: ["五條市"] },
-        { court: "吉野", keywords: ["吉野郡吉野町", "吉野郡大淀町", "吉野郡下市町", "吉野郡黒滝村", "吉野郡天川村", "吉野郡野迫川村", "吉野郡十津川村", "吉野郡下北山村", "吉野郡上北山村", "吉野郡川上村", "吉野郡東吉野村"] },
-        { court: "和歌山", keywords: ["和歌山市", "海南市", "紀の川市", "岩出市", "海草郡紀美野町"] },
-        { court: "橋本", keywords: ["橋本市", "伊都郡かつらぎ町", "伊都郡九度山町", "伊都郡高野町"] },
-        { court: "妙寺", keywords: ["紀の川市", "岩出市", "伊都郡かつらぎ町"] }, // 簡裁管轄重複あり
-        { court: "田辺", keywords: ["田辺市", "西牟婁郡白浜町", "西牟婁郡上富田町", "西牟婁郡すさみ町", "日高郡みなべ町", "日高郡印南町", "日高郡日高川町"] },
-        { court: "御坊", keywords: ["御坊市", "日高郡美浜町", "日高郡日高町", "日高郡由良町", "日高郡印南町", "日高郡みなべ町", "日高郡日高川町"] },
-        { court: "新宮", keywords: ["新宮市", "東牟婁郡那智勝浦町", "東牟婁郡太地町", "東牟婁郡古座川町", "東牟婁郡北山村", "東牟婁郡串本町"] },
-        { court: "鳥取", keywords: ["鳥取市", "岩美郡岩美町", "八頭郡若桜町", "八頭郡智頭町", "八頭郡八頭町"] },
-        { court: "倉吉", keywords: ["倉吉市", "東伯郡三朝町", "東伯郡湯梨浜町", "東伯郡琴浦町", "東伯郡北栄町"] },
-        { court: "米子", keywords: ["米子市", "境港市", "西伯郡日吉津村", "西伯郡大山町", "西伯郡南部町", "西伯郡伯耆町", "日野郡日南町", "日野郡日野町", "日野郡江府町"] },
-        { court: "松江", keywords: ["松江市", "安来市"] },
-        { court: "出雲", keywords: ["出雲市", "雲南市", "仁多郡奥出雲町", "飯石郡飯南町"] },
-        { court: "浜田", keywords: ["浜田市", "江津市", "邑智郡川本町", "邑智郡美郷町", "邑智郡邑南町"] },
-        { court: "益田", keywords: ["益田市", "鹿足郡津和野町", "鹿足郡吉賀町"] },
-        { court: "西郷", keywords: ["隠岐郡海士町", "隠岐郡西ノ島町", "隠岐郡知夫村", "隠岐郡隠岐の島町"] },
-        { court: "岡山", keywords: ["岡山市", "北区", "中区", "東区", "南区", "玉野市", "瀬戸内市", "加賀郡吉備中央町", "備前市", "赤磐市", "和気郡和気町"] },
-        { court: "倉敷", keywords: ["倉敷市", "総社市", "都窪郡早島町"] },
-        { court: "児島", keywords: ["倉敷市児島"] }, // ※特例
-        { court: "玉島", keywords: ["倉敷市玉島", "倉敷市船穂", "浅口市", "浅口郡里庄町"] },
-        { court: "津山", keywords: ["津山市", "美作市", "苫田郡鏡野町", "勝田郡勝央町", "勝田郡奈義町", "英田郡西粟倉村", "久米郡久米南町", "久米郡美咲町", "真庭市", "真庭郡新庄村"] },
-        { court: "高梁", keywords: ["高梁市", "加賀郡吉備中央町"] },
-        { court: "新見", keywords: ["新見市"] },
-        { court: "広島", keywords: ["広島市", "中区", "東区", "南区", "西区", "安佐南区", "安佐北区", "安芸区", "佐伯区", "安芸郡府中町", "安芸郡海田町", "安芸郡熊野町", "安芸郡坂町", "廿日市市", "大竹市", "山県郡安芸太田町", "山県郡北広島町", "安芸高田市", "東広島市"] },
-        { court: "可部", keywords: ["広島市安佐北区", "安芸高田市", "山県郡安芸太田町", "山県郡北広島町"] },
-        { court: "呉", keywords: ["呉市", "江田島市"] },
-        { court: "竹原", keywords: ["竹原市", "豊田郡大崎上島町", "東広島市安芸津町"] },
-        { court: "尾道", keywords: ["尾道市", "三原市", "世羅郡世羅町"] },
-        { court: "福山", keywords: ["福山市", "府中市", "神石郡神石高原町"] },
-        { court: "三次", keywords: ["三次市", "庄原市"] },
-        { court: "山口", keywords: ["山口市", "防府市"] },
-        { court: "周南", keywords: ["下松市", "光市", "周南市"] },
-        { court: "萩", keywords: ["萩市", "長門市", "阿武郡阿武町"] },
-        { court: "岩国", keywords: ["岩国市", "柳井市", "大島郡周防大島町", "玖珂郡和木町", "熊毛郡上関町", "熊毛郡田布施町", "熊毛郡平生町"] },
-        { court: "下関", keywords: ["下関市"] },
-        { court: "宇部", keywords: ["宇部市", "山陽小野田市", "美祢市"] },
-        { court: "徳島", keywords: ["徳島市", "小松島市", "勝浦郡勝浦町", "勝浦郡上勝町", "名東郡佐那河内村", "名西郡石井町", "名西郡神山町", "板野郡松茂町", "板野郡北島町", "板野郡藍住町", "板野郡板野町", "板野郡上板町", "鳴門市", "吉野川市", "阿波市"] },
-        { court: "阿南", keywords: ["阿南市", "那賀郡那賀町", "海部郡牟岐町", "海部郡美波町", "海部郡海陽町"] },
-        { court: "美馬", keywords: ["美馬市", "美馬郡つるぎ町", "三好市", "三好郡東みよし町"] },
-        { court: "高松", keywords: ["高松市", "さぬき市", "東かがわ市", "木田郡三木町", "香川郡直島町", "小豆郡土庄町", "小豆郡小豆島町"] },
-        { court: "丸亀", keywords: ["丸亀市", "坂出市", "善通寺市", "綾歌郡宇多津町", "綾歌郡綾川町", "仲多度郡多度津町"] },
-        { court: "観音寺", keywords: ["観音寺市", "三豊市"] },
-        { court: "松山", keywords: ["松山市", "伊予市", "東温市", "上浮穴郡久万高原町", "伊予郡松前町", "伊予郡砥部町"] },
-        { court: "大洲", keywords: ["大洲市", "八幡浜市", "西予市", "喜多郡内子町", "西宇和郡伊方町"] },
-        { court: "西条", keywords: ["西条市", "新居浜市", "四国中央市"] },
-        { court: "今治", keywords: ["今治市", "越智郡上島町"] },
-        { court: "宇和島", keywords: ["宇和島市", "北宇和郡松野町", "北宇和郡鬼北町", "南宇和郡愛南町"] },
-        { court: "高知", keywords: ["高知市", "南国市", "土佐市", "香南市", "香美市", "長岡郡本山町", "長岡郡大豊町", "土佐郡土佐町", "土佐郡大川村", "吾川郡いの町", "吾川郡仁淀川町", "高岡郡日高村"] },
-        { court: "須崎", keywords: ["須崎市", "高岡郡中土佐町", "高岡郡佐川町", "高岡郡越知町", "高岡郡四万十町", "高岡郡檮原町", "高岡郡津野町"] },
-        { court: "安芸", keywords: ["安芸市", "室戸市", "安芸郡東洋町", "安芸郡奈半利町", "安芸郡田野町", "安芸郡安田町", "安芸郡北川村", "安芸郡馬路村", "安芸郡芸西村"] },
-        { court: "中村", keywords: ["四万十市", "宿毛市", "土佐清水市", "幡多郡黒潮町", "幡多郡大月町", "幡多郡三原村"] },
-        { court: "福岡", keywords: ["福岡市", "筑紫野市", "春日市", "大野城市", "宗像市", "太宰府市", "古賀市", "福津市", "糸島市", "那珂川市", "糟屋郡宇美町", "糟屋郡篠栗町", "糟屋郡志免町", "糟屋郡須恵町", "糟屋郡新宮町", "糟屋郡久山町", "糟屋郡粕屋町"] },
-        { court: "飯塚", keywords: ["飯塚市", "嘉麻市", "嘉穂郡桂川町"] },
-        { court: "直方", keywords: ["直方市", "宮若市", "鞍手郡小竹町", "鞍手郡鞍手町"] },
-        { court: "田川", keywords: ["田川市", "田川郡香春町", "田川郡添田町", "田川郡糸田町", "田川郡川崎町", "田川郡大任町", "田川郡赤村", "田川郡福智町"] },
-        { court: "久留米", keywords: ["久留米市", "小郡市", "うきは市", "三井郡大刀洗町", "三潴郡大木町"] },
-        { court: "柳川", keywords: ["大川市", "柳川市", "みやま市"] },
-        { court: "大牟田", keywords: ["大牟田市"] },
-        { court: "八女", keywords: ["八女市", "筑後市", "八女郡広川町"] },
-        { court: "小倉", keywords: ["北九州市小倉北区", "北九州市小倉南区", "北九州市門司区", "北九州市戸畑区"] },
-        { court: "折尾", keywords: ["北九州市八幡西区", "北九州市八幡東区", "北九州市若松区", "中間市", "遠賀郡芦屋町", "遠賀郡水巻町", "遠賀郡岡垣町", "遠賀郡遠賀町"] },
-        { court: "行橋", keywords: ["行橋市", "豊前市", "京都郡苅田町", "京都郡みやこ町", "築上郡吉富町", "築上郡上毛町", "築上郡築上町"] },
-        { court: "佐賀", keywords: ["佐賀市", "多久市", "小城市", "神埼市", "神埼郡吉野ヶ里町"] },
-        { court: "武雄", keywords: ["武雄市", "鹿島市", "嬉野市", "杵島郡大町町", "杵島郡江北町", "杵島郡白石町", "藤津郡太良町"] },
-        { court: "唐津", keywords: ["唐津市", "東松浦郡玄海町"] },
-        { court: "伊万里", keywords: ["伊万里市", "西松浦郡有田町"] },
-        { court: "鳥栖", keywords: ["鳥栖市", "三養基郡基山町", "三養基郡上峰町", "三養基郡みやき町"] },
-        { court: "長崎", keywords: ["長崎市", "西海市", "西彼杵郡長与町", "西彼杵郡時津町"] },
-        { court: "大村", keywords: ["大村市", "東彼杵郡東彼杵町"] },
-        { court: "諫早", keywords: ["諫早市"] },
-        { court: "島原", keywords: ["島原市", "雲仙市", "南島原市"] },
-        { court: "佐世保", keywords: ["佐世保市", "西海市", "佐々町", "川棚町", "波佐見町", "小値賀町"] }, // 簡略
-        { court: "平戸", keywords: ["平戸市", "松浦市"] },
-        { court: "五島", keywords: ["五島市", "南松浦郡新上五島町"] },
-        { court: "壱岐", keywords: ["壱岐市"] },
-        { court: "対馬", keywords: ["対馬市"] },
-        { court: "熊本", keywords: ["熊本市", "宇土市", "宇城市", "合志市", "下益城郡美里町", "菊池郡大津町", "菊池郡菊陽町", "上益城郡御船町", "上益城郡嘉島町", "上益城郡益城町", "上益城郡甲佐町", "上益城郡山都町"] },
-        { court: "玉名", keywords: ["玉名市", "荒尾市", "玉名郡玉東町", "玉名郡南関町", "玉名郡長洲町", "玉名郡和水町"] },
-        { court: "山鹿", keywords: ["山鹿市", "菊池市"] },
-        { court: "阿蘇", keywords: ["阿蘇市", "阿蘇郡南小国町", "阿蘇郡小国町", "阿蘇郡産山村", "阿蘇郡高森町", "阿蘇郡西原村", "阿蘇郡南阿蘇村"] },
-        { court: "八代", keywords: ["八代市", "八代郡氷川町"] },
-        { court: "人吉", keywords: ["人吉市", "球磨郡錦町", "球磨郡多良木町", "球磨郡湯前町", "球磨郡水上村", "球磨郡相良村", "球磨郡五木村", "球磨郡山江村", "球磨郡球磨村", "球磨郡あさぎり町"] },
-        { court: "天草", keywords: ["天草市", "上天草市", "天草郡苓北町"] },
-        { court: "大分", keywords: ["大分市", "臼杵市", "津久見市", "由布市", "豊後大野市"] },
-        { court: "別府", keywords: ["別府市"] }, // 大分に統合？確認
-        { court: "杵築", keywords: ["杵築市", "国東市", "速見郡日出町", "東国東郡姫島村"] },
-        { court: "佐伯", keywords: ["佐伯市"] },
-        { court: "竹田", keywords: ["竹田市", "豊後大野市"] },
-        { court: "中津", keywords: ["中津市", "宇佐市"] },
-        { court: "豊後高田", keywords: ["豊後高田市"] },
-        { court: "日田", keywords: ["日田市", "玖珠郡九重町", "玖珠郡玖珠町"] },
-        { court: "宮崎", keywords: ["宮崎市", "国富町", "綾町", "西都市", "高鍋町", "新富町", "西米良村", "木城町", "川南町", "都農町"] },
-        { court: "日南", keywords: ["日南市", "串間市"] },
-        { court: "都城", keywords: ["都城市", "小林市", "えびの市", "三股町", "高原町"] },
-        { court: "延岡", keywords: ["延岡市", "日向市", "門川町", "諸塚村", "椎葉村", "美郷町", "高千穂町", "日之影町", "五ヶ瀬町"] },
-        { court: "鹿児島", keywords: ["鹿児島市", "日置市", "いちき串木野市", "三島村", "十島村"] },
-        { court: "名瀬", keywords: ["奄美市", "大和村", "宇検村", "瀬戸内町", "龍郷町", "喜界町"] },
-        { court: "加治木", keywords: ["霧島市", "姶良市", "伊佐市", "湧水町"] },
-        { court: "知覧", keywords: ["南九州市", "南さつま市", "枕崎市"] },
-        { court: "川内", keywords: ["薩摩川内市", "阿久根市", "出水市", "さつま町", "長島町"] },
-        { court: "鹿屋", keywords: ["鹿屋市", "垂水市", "曽於市", "志布志市", "大崎町", "東串良町", "錦江町", "南大隅町", "肝付町"] },
-        { court: "那覇", keywords: ["那覇市", "浦添市", "糸満市", "豊見城市", "南城市", "西原町", "与那原町", "南風原町", "渡嘉敷村", "座間味村", "粟国村", "渡名喜村", "南大東村", "北大東村", "久米島町", "八重瀬町"] },
-        { court: "沖縄", keywords: ["沖縄市", "宜野湾市", "うるま市", "読谷村", "嘉手納町", "北谷町", "北中城村", "中城村"] },
-        { court: "名護", keywords: ["名護市", "国頭村", "大宜味村", "東村", "今帰仁村", "本部町", "恩納村", "宜野座村", "金武町", "伊江村", "伊平屋村", "伊是名村"] },
-        { court: "平良", keywords: ["宮古島市", "多良間村"] },
-        { court: "石垣", keywords: ["石垣市", "竹富町", "与那国町"] }
-    ];
-
-    // デフォルトの初期値
-    const initialData = {
-        courtName: '',
-        date: new Date().toISOString().split('T')[0],
-        creditor: { name: '', repName: '', address: '', postalCode: '', phone: '', fax: '' },
-        debtor: { name: '', repName: '', address: '', postalCode: '', phone: '', fax: '' },
-        loan: {
-            date: '', amount: '', hasInterest: 'no', interestRate: '',
-            hasDeadline: 'no', deadlineDate: '', deadlineNoticeDate1: '', deadlineNoticeDate2: '',
-            hasDelayDamages: 'no', delayDamagesRate: '',
-            hasGuarantor: 'no', guarantorName: '',
-            specialCondition: '', repaymentStatus: 'none',
-            repaymentHistory: [{ date: '', amount: '', interestAlloc: 0, principalAlloc: 0, balance: 0 }]
-        },
-        claim: { principal: '', interest: '0', delayDamages: '0', delayDamagesRate: '3', startDate: '', startDateMode: 'served_next' },
-        costs: { fee: '' }, 
-        attachments: { cert: false, other1: '', other2: '' }
-    };
-
-    const [formData, setFormData] = useState(initialData);
-    const [jurisdictionMessage, setJurisdictionMessage] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    const [calculatedHistory, setCalculatedHistory] = useState([]);
-
-    const searchAddress = async (postalCode, target) => {
-        if (!postalCode || postalCode.length < 7) {
-            alert("7桁の郵便番号を入力してください");
-            return;
-        }
-        setIsSearching(true);
-        try {
-            const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${postalCode}`);
-            const data = await response.json();
-            if (data.results) {
-                const result = data.results[0];
-                const fullAddress = result.address1 + result.address2 + result.address3;
-                if (target === 'creditor') {
-                    setFormData(prev => ({ ...prev, creditor: { ...prev.creditor, address: fullAddress } }));
-                } else {
-                    setFormData(prev => ({ ...prev, debtor: { ...prev.debtor, address: fullAddress } }));
-                }
-            } else {
-                alert("住所が見つかりませんでした。");
-            }
-        } catch (error) {
-            console.error("Address search failed:", error);
-            alert("住所検索に失敗しました。手動で入力してください。");
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    // 管轄判定ロジック (キーワード照合)
-    const determineJurisdiction = (address) => {
-        if (!address) return '';
-        // 前方一致や部分一致で検索
-        for (const entry of JURISDICTION_DATA) {
-            for (const keyword of entry.keywords) {
-                if (address.includes(keyword)) {
-                    return entry.court;
-                }
-            }
-        }
-        return '';
-    };
-
-    useEffect(() => {
-        const estimatedCourt = determineJurisdiction(formData.debtor.address);
-        if (estimatedCourt) {
-            setFormData(prev => ({ ...prev, courtName: estimatedCourt }));
-            setJurisdictionMessage(`※住所から「${estimatedCourt}簡易裁判所」を自動判定しました。`);
-        } else if (formData.debtor.address.length > 3) {
-            setJurisdictionMessage('※管轄裁判所を自動判定できませんでした。手動で入力してください。');
-        } else {
-            setJurisdictionMessage('');
-        }
-    }, [formData.debtor.address]);
-
-    // 手数料計算
-    useEffect(() => {
-        const amount = parseInt(formData.claim.principal) + parseInt(formData.claim.interest || 0);
-        if (!amount || isNaN(amount)) {
-            setFormData(prev => ({ ...prev, costs: { ...prev.costs, fee: '' } }));
-            return;
-        }
-        let lawsuitFee = 0;
-        if (amount <= 1000000) {
-            lawsuitFee = Math.ceil(amount / 100000) * 1000;
-        } else if (amount <= 5000000) {
-            lawsuitFee = 10000 + Math.ceil((amount - 1000000) / 200000) * 1000;
-        } else if (amount <= 10000000) {
-            lawsuitFee = 30000 + Math.ceil((amount - 5000000) / 500000) * 2000;
-        } else {
-            lawsuitFee = 50000 + Math.ceil((amount - 10000000) / 1000000) * 3000;
-        }
-        const paymentOrderFee = Math.floor(lawsuitFee / 2);
-        setFormData(prev => ({
-            ...prev,
-            costs: { ...prev.costs, fee: paymentOrderFee.toString() }
-        }));
-    }, [formData.claim.principal, formData.claim.interest]);
-
-    // 弁済充当ロジック
-    useEffect(() => {
-        const originalAmount = parseInt(formData.loan.amount) || 0;
-        const interestRate = parseFloat(formData.loan.interestRate) || 0;
-        const loanDateStr = formData.loan.date;
-        const history = formData.loan.repaymentHistory;
-
-        if (!originalAmount || !loanDateStr) {
-            setCalculatedHistory([]);
-            return;
-        }
-
-        if (formData.loan.repaymentStatus !== 'partial') {
-            setCalculatedHistory([]);
-            if (formData.claim.principal !== originalAmount.toString()) {
-                setFormData(prev => ({ ...prev, claim: { ...prev.claim, principal: originalAmount.toString() } }));
-            }
-            return;
-        }
-
-        let currentPrincipal = originalAmount;
-        let lastDate = new Date(loanDateStr);
-        let newHistory = [];
-
-        const sortedHistory = [...history]
-            .filter(h => h.date && h.amount)
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        for (const payment of sortedHistory) {
-            const paymentDate = new Date(payment.date);
-            const paymentAmount = parseInt(payment.amount) || 0;
-            const diffTime = paymentDate - lastDate;
-            const diffDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
-            let interest = 0;
-            if (formData.loan.hasInterest === 'yes') {
-                interest = Math.floor(currentPrincipal * (interestRate / 100) * diffDays / 365);
-            }
-
-            let interestAlloc = 0;
-            let principalAlloc = 0;
-
-            if (paymentAmount >= interest) {
-                interestAlloc = interest;
-                principalAlloc = paymentAmount - interest;
-            } else {
-                interestAlloc = paymentAmount;
-                principalAlloc = 0;
-            }
-
-            currentPrincipal = Math.max(0, currentPrincipal - principalAlloc);
-            
-            newHistory.push({
-                ...payment,
-                interestAlloc,
-                principalAlloc,
-                balance: currentPrincipal,
-                days: diffDays,
-                accruedInterest: interest
-            });
-
-            lastDate = paymentDate;
-        }
-
-        setCalculatedHistory(newHistory);
-
-        if (currentPrincipal.toString() !== formData.claim.principal) {
-            setFormData(prev => ({ ...prev, claim: { ...prev.claim, principal: currentPrincipal.toString() } }));
-        }
-
-    }, [
-        formData.loan.amount, 
-        formData.loan.date, 
-        formData.loan.interestRate, 
-        formData.loan.hasInterest, 
-        formData.loan.repaymentStatus, 
-        formData.loan.repaymentHistory
-    ]);
-
-    // 利息計算（残元金に対する）
-    useEffect(() => {
-        if (formData.loan.hasInterest === 'yes' && formData.loan.hasDeadline === 'yes' && 
-            formData.loan.date && formData.loan.deadlineDate && formData.claim.principal) {
-            if (formData.loan.repaymentStatus === 'partial') {
-                 setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: '0' } }));
-            } else {
-                const principal = parseInt(formData.claim.principal);
-                const rate = parseFloat(formData.loan.interestRate);
-                const start = new Date(formData.loan.date);
-                const end = new Date(formData.loan.deadlineDate);
-                if (!isNaN(principal) && !isNaN(rate) && start && end && end > start) {
-                    const diffTime = Math.abs(end - start);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                    const interest = Math.floor(principal * (rate / 100) * diffDays / 365);
-                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: interest.toString() } }));
-                }
-            }
-        } else if (formData.loan.hasInterest === 'no') {
-            setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: '0' } }));
-        }
-    }, [formData.loan.hasInterest, formData.loan.hasDeadline, formData.loan.date, formData.loan.deadlineDate, formData.loan.interestRate, formData.claim.principal, formData.loan.repaymentStatus]);
-
-    useEffect(() => {
-        if (formData.loan.hasInterest === 'yes' && formData.loan.interestRate) {
-            setFormData(prev => ({
-                ...prev,
-                loan: { ...prev.loan, delayDamagesRate: formData.loan.interestRate, hasDelayDamages: 'yes' },
-                claim: { ...prev.claim, delayDamagesRate: formData.loan.interestRate }
-            }));
-        } else if (formData.loan.hasInterest === 'no') {
-            setFormData(prev => ({ ...prev, claim: { ...prev.claim, delayDamagesRate: '3' } }));
-        }
-    }, [formData.loan.hasInterest, formData.loan.interestRate]);
-
-    // バリデーションチェック
-    const validateForm = () => {
-        const errors = [];
-        if (!formData.creditor.name) errors.push("債権者の氏名");
-        if (!formData.creditor.address) errors.push("債権者の住所");
-        if (!formData.creditor.phone) errors.push("債権者の電話番号");
-        if (!formData.debtor.name) errors.push("債務者の氏名");
-        if (!formData.debtor.address) errors.push("債務者の住所");
-        if (!formData.loan.amount) errors.push("貸付金額");
-
-        if (errors.length > 0) {
-            alert(`以下の必須項目が入力されていません：\n・${errors.join('\n・')}\n\n※法人の場合は代表者氏名も入力されているか確認してください。`);
-            return false;
-        }
-        return true;
-    };
-
-    const handlePrint = () => {
-        if (validateForm()) {
-            window.print();
-        }
-    };
-
-    const handleChange = (section, field, value) => {
-        setFormData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
-    };
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支払督促申立書 自動作成ツール</title>
     
-    const handleDeadlineNoticeDate1Change = (e) => {
-        const val = e.target.value;
-        setFormData(prev => {
-            let nextDeadline = prev.loan.deadlineNoticeDate2;
-            if (val) {
-                const date = new Date(val);
-                date.setDate(date.getDate() + 7);
-                nextDeadline = date.toISOString().split('T')[0];
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (JSXをブラウザで動かすために必要) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS (デザイン用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 印刷用スタイル -->
+    <style>
+        @media print {
+            @page { size: A4; margin: 0; }
+            body { background: white; -webkit-print-color-adjust: exact; }
+            .print\:hidden { display: none !important; }
+            .print\:block { display: block !important; }
+            .print\:w-full { width: 100% !important; }
+            .print\:p-0 { padding: 0 !important; }
+            .print\:shadow-none { box-shadow: none !important; }
+            .page { 
+                break-after: page; 
+                height: 297mm; 
+                width: 210mm; 
+                padding: 20mm !important; 
+                margin: 0 !important; 
+                box-shadow: none !important;
+                overflow: hidden;
+                position: relative;
             }
-            return {
-                ...prev,
-                loan: { 
-                    ...prev.loan, 
-                    deadlineNoticeDate1: val,
-                    deadlineNoticeDate2: nextDeadline
+            .print-pages-container { width: 100%; }
+        }
+        /* 画面表示時のスタイル */
+        .page {
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            padding: 20mm;
+            color: black;
+            font-family: "Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+            font-size: 12pt;
+            line-height: 1.6;
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- アイコンコンポーネント (Lucide互換) ---
+        const Icon = ({ path }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                {path}
+            </svg>
+        );
+        const Printer = () => <Icon path={<><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></>} />;
+        const FileText = () => <Icon path={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>} />;
+        const RotateCcw = () => <Icon path={<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>} />;
+        const Search = () => <Icon path={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>} />;
+        const Plus = () => <Icon path={<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>} />;
+        const Trash2 = () => <Icon path={<><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>} />;
+
+        // --- メインアプリ ---
+        function App() {
+            // 裁判所管轄データ
+            const JURISDICTION_DATA = [
+                { court: "札幌", keywords: ["札幌市", "江別市", "千歳市", "恵庭市", "北広島市", "石狩市", "石狩郡当別町", "石狩郡新篠津村"] },
+                { court: "浦河", keywords: ["浦河郡浦河町", "様似郡様似町", "幌泉郡えりも町", "日高郡新ひだか町", "三石郡", "三石"] },
+                { court: "静内", keywords: ["沙流郡日高町", "沙流郡平取町", "新冠郡新冠町", "日高郡新ひだか町", "静内郡", "静内"] },
+                { court: "苫小牧", keywords: ["苫小牧市", "勇払郡厚真町", "勇払郡安平町", "勇払郡むかわ町"] },
+                { court: "室蘭", keywords: ["室蘭市", "登別市", "白老郡白老町"] },
+                { court: "伊達", keywords: ["伊達市", "有珠郡壮瞥町", "虻田郡豊浦町", "虻田郡洞爺湖町"] },
+                { court: "岩見沢", keywords: ["岩見沢市", "美唄市", "三笠市", "夕張郡由仁町", "夕張郡長沼町", "夕張郡栗山町", "空知郡南幌町", "樺戸郡月形町"] },
+                { court: "夕張", keywords: ["夕張市"] },
+                { court: "滝川", keywords: ["滝川市", "砂川市", "赤平市", "芦別市", "歌志内市", "空知郡奈井江町", "空知郡上砂川町", "樺戸郡浦臼町", "樺戸郡新十津川町", "雨竜郡雨竜町"] },
+                { court: "小樽", keywords: ["小樽市", "余市郡仁木町", "余市郡余市町", "余市郡赤井川村", "古平郡古平町", "積丹郡積丹町"] },
+                { court: "岩内", keywords: ["岩内郡共和町", "岩内郡岩内町", "古宇郡泊村", "古宇郡神恵内村"] },
+                { court: "倶知安", keywords: ["虻田郡倶知安町", "虻田郡京極町", "虻田郡喜茂別町", "虻田郡留寿都村", "虻田郡ニセコ町", "虻田郡真狩村", "磯谷郡蘭越町"] },
+                { court: "函館", keywords: ["函館市", "北斗市", "亀田郡七飯町", "上磯郡木古内町", "上磯郡知内町", "茅部郡鹿部町", "茅部郡森町"] },
+                { court: "八雲", keywords: ["二海郡八雲町", "山越郡長万部町", "瀬棚郡今金町"] },
+                { court: "松前", keywords: ["松前郡松前町", "松前郡福島町"] },
+                { court: "江差", keywords: ["檜山郡江差町", "檜山郡上ノ国町", "檜山郡厚沢部町", "爾志郡乙部町", "奥尻郡奥尻町"] },
+                { court: "寿都", keywords: ["寿都郡寿都町", "寿都郡黒松内町", "島牧郡島牧村"] },
+                { court: "旭川", keywords: ["旭川市", "富良野市", "上川郡鷹栖町", "上川郡東神楽町", "上川郡当麻町", "上川郡比布町", "上川郡愛別町", "上川郡上川町", "上川郡東川町", "上川郡美瑛町", "空知郡上富良野町", "空知郡中富良野町", "空知郡南富良野町", "勇払郡占冠村", "上川郡和寒町", "上川郡剣淵町", "上川郡下川町", "雨竜郡幌加内町"] },
+                { court: "深川", keywords: ["深川市", "雨竜郡妹背牛町", "雨竜郡秩父別町", "雨竜郡北竜町", "雨竜郡沼田町"] },
+                { court: "名寄", keywords: ["名寄市", "士別市", "中川郡美深町", "中川郡音威子府村", "中川郡中川町"] },
+                { court: "紋別", keywords: ["紋別市", "紋別郡滝上町", "紋別郡興部町", "紋別郡西興部村", "紋別郡雄武町"] },
+                { court: "留萌", keywords: ["留萌市", "増毛郡増毛町", "留萌郡小平町"] },
+                { court: "羽幌", keywords: ["苫前郡苫前町", "苫前郡羽幌町", "苫前郡初山別村"] },
+                { court: "天塩", keywords: ["天塩郡遠別町", "天塩郡天塩町", "天塩郡幌延町"] },
+                { court: "稚内", keywords: ["稚内市", "宗谷郡猿払村", "利尻郡利尻町", "利尻郡利尻富士町", "礼文郡礼文町"] },
+                { court: "浜頓別", keywords: ["枝幸郡浜頓別町", "枝幸郡中頓別町", "枝幸郡枝幸町"] },
+                { court: "釧路", keywords: ["釧路市", "釧路郡釧路町", "厚岸郡厚岸町", "厚岸郡浜中町", "川上郡標茶町", "川上郡弟子屈町", "阿寒郡鶴居村", "白糠郡白糠町"] },
+                { court: "根室", keywords: ["根室市"] },
+                { court: "標津", keywords: ["標津郡中標津町", "標津郡標津町", "目梨郡羅臼町", "野付郡別海町"] },
+                { court: "帯広", keywords: ["帯広市", "河東郡音更町", "河東郡士幌町", "河東郡上士幌町", "河東郡鹿追町", "上川郡新得町", "上川郡清水町", "河西郡芽室町", "河西郡中札内村", "河西郡更別村", "広尾郡大樹町", "広尾郡広尾町", "中川郡幕別町", "中川郡池田町", "中川郡豊頃町", "中川郡本別町"] },
+                { court: "足寄", keywords: ["足寄郡足寄町", "足寄郡陸別町"] },
+                { court: "北見", keywords: ["北見市", "常呂郡訓子府町", "常呂郡置戸町"] },
+                { court: "遠軽", keywords: ["紋別郡遠軽町", "紋別郡湧別町", "常呂郡佐呂間町"] },
+                { court: "網走", keywords: ["網走市", "網走郡大空町", "斜里郡小清水町", "斜里郡清里町", "斜里郡斜里町"] },
+                { court: "青森", keywords: ["青森市", "東津軽郡平内町", "東津軽郡今別町", "東津軽郡蓬田村", "東津軽郡外ヶ浜町"] },
+                { court: "むつ", keywords: ["むつ市", "下北郡大間町", "下北郡東通村", "下北郡風間浦村", "下北郡佐井村", "上北郡横浜町"] },
+                { court: "野辺地", keywords: ["上北郡野辺地町", "上北郡七戸町", "上北郡東北町", "上北郡六ヶ所村"] },
+                { court: "弘前", keywords: ["弘前市", "黒石市", "平川市", "中津軽郡西目屋村", "南津軽郡藤崎町", "南津軽郡大鰐町", "南津軽郡田舎館村", "北津軽郡板柳町"] },
+                { court: "五所川原", keywords: ["五所川原市", "つがる市", "北津軽郡鶴田町", "北津軽郡中泊町", "西津軽郡鰺ヶ沢町", "西津軽郡深浦町"] },
+                { court: "八戸", keywords: ["八戸市", "三戸郡三戸町", "三戸郡五戸町", "三戸郡田子町", "三戸郡南部町", "三戸郡階上町", "三戸郡新郷村", "上北郡おいらせ町"] },
+                { court: "十和田", keywords: ["十和田市", "三沢市", "上北郡六戸町"] },
+                { court: "仙台", keywords: ["仙台市", "塩竈市", "名取市", "多賀城市", "岩沼市", "富谷市", "亘理郡亘理町", "亘理郡山元町", "黒川郡大和町", "黒川郡大郷町", "黒川郡大衡村", "宮城郡松島町", "宮城郡七ヶ浜町", "宮城郡利府町"] },
+                { court: "大河原", keywords: ["白石市", "角田市", "柴田郡大河原町", "柴田郡村田町", "柴田郡柴田町", "柴田郡川崎町", "伊具郡丸森町", "刈田郡蔵王町", "刈田郡七ヶ宿町"] },
+                { court: "古川", keywords: ["大崎市", "加美郡色麻町", "加美郡加美町", "遠田郡涌谷町", "遠田郡美里町"] },
+                { court: "中新田", keywords: ["加美郡色麻町", "加美郡加美町"] }, // ※古川と重複あり
+                { court: "石巻", keywords: ["石巻市", "東松島市", "牡鹿郡女川町"] },
+                { court: "登米", keywords: ["登米市"] },
+                { court: "気仙沼", keywords: ["気仙沼市", "本吉郡南三陸町"] },
+                { court: "盛岡", keywords: ["盛岡市", "八幡平市", "滝沢市", "岩手郡雫石町", "岩手郡葛巻町", "岩手郡岩手町", "紫波郡紫波町", "紫波郡矢巾町"] },
+                { court: "花巻", keywords: ["花巻市"] },
+                { court: "二戸", keywords: ["二戸市", "二戸郡一戸町", "九戸郡軽米町", "九戸郡九戸村"] },
+                { court: "久慈", keywords: ["久慈市", "下閉伊郡普代村", "九戸郡野田村", "九戸郡洋野町"] },
+                { court: "遠野", keywords: ["遠野市"] },
+                { court: "釜石", keywords: ["釜石市", "上閉伊郡大槌町"] },
+                { court: "宮古", keywords: ["宮古市", "下閉伊郡山田町", "下閉伊郡岩泉町", "下閉伊郡田野畑村"] },
+                { court: "一関", keywords: ["一関市", "西磐井郡平泉町"] },
+                { court: "大船渡", keywords: ["大船渡市", "陸前高田市", "気仙郡住田町"] },
+                { court: "水沢", keywords: ["奥州市", "胆沢郡金ケ崎町"] },
+                { court: "北上", keywords: ["北上市", "和賀郡西和賀町"] },
+                { court: "秋田", keywords: ["秋田市", "潟上市", "南秋田郡五城目町", "南秋田郡八郎潟町", "南秋田郡井川町", "南秋田郡大潟村"] },
+                { court: "男鹿", keywords: ["男鹿市"] },
+                { court: "能代", keywords: ["能代市", "山本郡藤里町", "山本郡三種町", "山本郡八峰町"] },
+                { court: "本荘", keywords: ["由利本荘市", "にかほ市"] },
+                { court: "大館", keywords: ["大館市", "北秋田市", "北秋田郡上小阿仁村"] },
+                { court: "鹿角", keywords: ["鹿角市", "鹿角郡小坂町"] },
+                { court: "横手", keywords: ["横手市"] },
+                { court: "湯沢", keywords: ["湯沢市", "雄勝郡羽後町", "雄勝郡東成瀬村"] },
+                { court: "大曲", keywords: ["大仙市", "仙北市", "仙北郡美郷町"] },
+                { court: "山形", keywords: ["山形市", "寒河江市", "上山市", "村山市", "天童市", "東根市", "尾花沢市", "東村山郡山辺町", "東村山郡中山町", "西村山郡河北町", "西村山郡西川町", "西村山郡朝日町", "西村山郡大江町", "北村山郡大石田町"] },
+                { court: "新庄", keywords: ["新庄市", "最上郡金山町", "最上郡最上町", "最上郡舟形町", "最上郡真室川町", "最上郡大蔵村", "最上郡鮭川村", "最上郡戸沢村"] },
+                { court: "米沢", keywords: ["米沢市", "南陽市", "東置賜郡高畠町", "東置賜郡川西町"] },
+                { court: "長井", keywords: ["長井市", "西置賜郡小国町", "西置賜郡白鷹町", "西置賜郡飯豊町"] },
+                { court: "赤湯", keywords: ["南陽市"] },
+                { court: "鶴岡", keywords: ["鶴岡市", "東田川郡三川町"] },
+                { court: "酒田", keywords: ["酒田市", "飽海郡遊佐町", "東田川郡庄内町"] },
+                { court: "福島", keywords: ["福島市", "二本松市", "伊達市", "伊達郡桑折町", "伊達郡国見町", "伊達郡川俣町", "安達郡大玉村"] },
+                { court: "相馬", keywords: ["相馬市", "南相馬市", "相馬郡新地町", "相馬郡飯舘村"] },
+                { court: "郡山", keywords: ["郡山市", "須賀川市", "田村市", "本宮市", "岩瀬郡鏡石町", "岩瀬郡天栄村", "田村郡三春町", "田村郡小野町"] },
+                { court: "白河", keywords: ["白河市", "西白河郡西郷村", "西白河郡泉崎村", "西白河郡中島村", "西白河郡矢吹町", "東白川郡棚倉町", "東白川郡矢祭町", "東白川郡塙町", "東白川郡鮫川村", "石川郡石川町", "石川郡玉川村", "石川郡平田村", "石川郡浅川町", "石川郡古殿町"] },
+                { court: "会津若松", keywords: ["会津若松市", "喜多方市", "耶麻郡北塩原村", "耶麻郡西会津町", "耶麻郡磐梯町", "耶麻郡猪苗代町", "河沼郡会津坂下町", "河沼郡湯川村", "河沼郡柳津町", "大沼郡三島町", "大沼郡金山町", "大沼郡昭和村", "大沼郡会津美里町"] },
+                { court: "田島", keywords: ["南会津郡下郷町", "南会津郡檜枝岐村", "南会津郡只見町", "南会津郡南会津町"] },
+                { court: "いわき", keywords: ["いわき市", "双葉郡広野町", "双葉郡楢葉町", "双葉郡富岡町", "双葉郡川内村", "双葉郡大熊町", "双葉郡双葉町", "双葉郡浪江町", "双葉郡葛尾村"] },
+                { court: "水戸", keywords: ["水戸市", "ひたちなか市", "那珂市", "鉾田市", "小美玉市", "東茨城郡茨城町", "東茨城郡大洗町", "東茨城郡城里町", "那珂郡東海村"] },
+                { court: "笠間", keywords: ["笠間市", "桜川市"] },
+                { court: "常陸太田", keywords: ["常陸太田市", "常陸大宮市", "久慈郡大子町"] },
+                { court: "日立", keywords: ["日立市", "高萩市", "北茨城市"] },
+                { court: "土浦", keywords: ["土浦市", "石岡市", "つくば市", "かすみがうら市", "つくばみらい市", "稲敷郡阿見町", "稲敷郡美浦村"] },
+                { court: "龍ケ崎", keywords: ["龍ケ崎市", "取手市", "牛久市", "守谷市", "稲敷市", "稲敷郡河内町", "北相馬郡利根町"] },
+                { court: "麻生", keywords: ["行方市", "潮来市", "神栖市", "鹿嶋市"] },
+                { court: "下妻", keywords: ["下妻市", "常総市", "結城市", "筑西市", "坂東市", "結城郡八千代町", "猿島郡五霞町", "猿島郡境町"] },
+                { court: "古河", keywords: ["古河市"] },
+                { court: "宇都宮", keywords: ["宇都宮市", "鹿沼市", "日光市", "さくら市", "那須烏山市", "下野市", "河内郡上三川町", "塩谷郡高根沢町"] },
+                { court: "真岡", keywords: ["真岡市", "芳賀郡益子町", "芳賀郡茂木町", "芳賀郡市貝町", "芳賀郡芳賀町"] },
+                { court: "大田原", keywords: ["大田原市", "那須塩原市", "矢板市", "那須郡那須町", "那須郡那珂川町", "塩谷郡塩谷町"] },
+                { court: "栃木", keywords: ["栃木市", "小山市", "下都賀郡壬生町", "下都賀郡野木町"] },
+                { court: "足利", keywords: ["足利市", "佐野市"] },
+                { court: "前橋", keywords: ["前橋市", "渋川市", "北群馬郡榛東村", "北群馬郡吉岡町"] },
+                { court: "伊勢崎", keywords: ["伊勢崎市", "佐波郡玉村町"] },
+                { court: "高崎", keywords: ["高崎市", "安中市", "藤岡市", "多野郡上野村", "多野郡神流町", "甘楽郡下仁田町", "甘楽郡南牧村", "甘楽郡甘楽町"] },
+                { court: "富岡", keywords: ["富岡市"] },
+                { court: "中之条", keywords: ["吾妻郡中之条町", "吾妻郡長野原町", "吾妻郡嬬恋村", "吾妻郡草津町", "吾妻郡高山村", "吾妻郡東吾妻町"] },
+                { court: "沼田", keywords: ["沼田市", "利根郡片品村", "利根郡川場村", "利根郡昭和村", "利根郡みなかみ町"] },
+                { court: "太田", keywords: ["太田市", "館林市", "邑楽郡板倉町", "邑楽郡明和町", "邑楽郡千代田町", "邑楽郡大泉町", "邑楽郡邑楽町"] },
+                { court: "桐生", keywords: ["桐生市", "みどり市"] },
+                { court: "さいたま", keywords: ["さいたま市", "蕨市", "戸田市", "朝霞市", "志木市", "和光市", "新座市", "蓮田市", "白岡市", "北足立郡伊奈町"] },
+                { court: "川口", keywords: ["川口市"] },
+                { court: "越谷", keywords: ["越谷市", "春日部市", "草加市", "八潮市", "三郷市", "吉川市", "北葛飾郡松伏町"] },
+                { court: "川越", keywords: ["川越市", "富士見市", "坂戸市", "鶴ヶ島市", "ふじみ野市", "入間郡三芳町", "入間郡毛呂山町", "入間郡越生町", "比企郡川島町", "比企郡鳩山町"] },
+                { court: "熊谷", keywords: ["熊谷市", "行田市", "東松山市", "羽生市", "鴻巣市", "深谷市", "本庄市", "桶川市", "北本市", "比企郡滑川町", "比企郡嵐山町", "比企郡小川町", "比企郡吉見町", "比企郡ときがわ町", "秩父郡東秩父村", "児玉郡美里町", "児玉郡神川町", "児玉郡上里町", "大里郡寄居町"] },
+                { court: "秩父", keywords: ["秩父市", "秩父郡横瀬町", "秩父郡皆野町", "秩父郡長瀞町", "秩父郡小鹿野町"] },
+                { court: "所沢", keywords: ["所沢市", "飯能市", "狭山市", "入間市", "日高市"] },
+                { court: "久喜", keywords: ["久喜市", "加須市", "幸手市", "南埼玉郡宮代町", "北葛飾郡杉戸町"] },
+                { court: "千葉", keywords: ["千葉市", "習志野市", "市原市", "八千代市"] },
+                { court: "佐倉", keywords: ["佐倉市", "成田市", "四街道市", "八街市", "印西市", "白井市", "富里市", "印旛郡酒々井町", "印旛郡栄町"] },
+                { court: "一宮", keywords: ["長生郡一宮町", "茂原市", "長生郡睦沢町", "長生郡長生村", "長生郡白子町", "長生郡長柄町", "長生郡長南町"] }, // ※千葉一宮
+                { court: "松戸", keywords: ["松戸市", "野田市", "柏市", "流山市", "我孫子市", "鎌ケ谷市"] },
+                { court: "木更津", keywords: ["木更津市", "君津市", "富津市", "袖ケ浦市"] },
+                { court: "館山", keywords: ["館山市", "鴨川市", "南房総市", "安房郡鋸南町"] },
+                { court: "八日市場", keywords: ["匝瑳市", "香取郡多古町", "山武郡横芝光町", "旭市", "銚子市", "東庄町"] },
+                { court: "佐原", keywords: ["香取市", "香取郡神崎町", "香取郡東庄町"] },
+                { court: "銚子", keywords: ["銚子市", "旭市"] },
+                { court: "東金", keywords: ["東金市", "山武市", "大網白里市", "山武郡九十九里町", "山武郡芝山町"] },
+                { court: "市川", keywords: ["市川市", "船橋市", "浦安市"] },
+                { court: "東京", keywords: ["千代田区", "中央区", "港区", "新宿区", "文京区", "台東区", "墨田区", "江東区", "品川区", "目黒区", "大田区", "世田谷区", "渋谷区", "中野区", "杉並区", "豊島区", "北区", "荒川区", "板橋区", "練馬区", "足立区", "葛飾区", "江戸川区", "三宅村", "御蔵島村", "小笠原村"] },
+                { court: "八丈島", keywords: ["八丈町", "青ヶ島村"] },
+                { court: "伊豆大島", keywords: ["大島町", "利島村", "新島村", "神津島村"] },
+                { court: "立川", keywords: ["立川市", "武蔵野市", "三鷹市", "府中市", "昭島市", "調布市", "小金井市", "小平市", "東村山市", "国分寺市", "国立市", "狛江市", "東大和市", "清瀬市", "東久留米市", "武蔵村山市", "西東京市"] },
+                { court: "八王子", keywords: ["八王子市", "日野市", "多摩市", "稲城市", "あきる野市", "羽村市", "福生市", "青梅市", "西多摩郡"] }, // 簡略
+                { court: "町田", keywords: ["町田市"] },
+                { court: "横浜", keywords: ["横浜市", "中区", "南区", "磯子区", "金沢区", "港南区", "港北区", "緑区", "青葉区", "都筑区", "神奈川区", "鶴見区", "保土ケ谷区", "旭区", "西区", "瀬谷区", "戸塚区", "泉区", "栄区"] }, // 区名も追加
+                { court: "川崎", keywords: ["川崎市"] },
+                { court: "相模原", keywords: ["相模原市"] },
+                { court: "横須賀", keywords: ["横須賀市", "鎌倉市", "逗子市", "三浦市", "三浦郡葉山町"] },
+                { court: "小田原", keywords: ["小田原市", "秦野市", "南足柄市", "中郡大磯町", "中郡二宮町", "足柄上郡", "足柄下郡"] },
+                { court: "厚木", keywords: ["厚木市", "大和市", "海老名市", "座間市", "綾瀬市", "愛甲郡愛川町", "愛甲郡清川村"] },
+                { court: "平塚", keywords: ["平塚市", "藤沢市", "茅ヶ崎市", "高座郡寒川町"] },
+                { court: "新潟", keywords: ["新潟市", "燕市", "西蒲原郡弥彦村", "五泉市", "東蒲原郡阿賀町", "佐渡市"] },
+                { court: "新津", keywords: ["新潟市秋葉区", "五泉市"] }, // 新潟簡裁に統合されている場合もあるが、csvデータに従うならあるかも
+                { court: "三条", keywords: ["三条市", "加茂市", "南蒲原郡田上町"] },
+                { court: "新発田", keywords: ["新発田市", "阿賀野市", "胎内市", "北蒲原郡聖籠町"] },
+                { court: "村上", keywords: ["村上市", "岩船郡関川村", "岩船郡粟島浦村"] },
+                { court: "長岡", keywords: ["長岡市", "小千谷市", "見附市", "三島郡出雲崎町", "魚沼市"] },
+                { court: "十日町", keywords: ["十日町市", "中魚沼郡津南町"] },
+                { court: "柏崎", keywords: ["柏崎市", "刈羽郡刈羽村"] },
+                { court: "南魚沼", keywords: ["南魚沼市", "南魚沼郡湯沢町"] },
+                { court: "高田", keywords: ["上越市", "妙高市"] },
+                { court: "糸魚川", keywords: ["糸魚川市"] },
+                { court: "富山", keywords: ["富山市", "滑川市", "中新川郡舟橋村", "中新川郡上市町", "中新川郡立山町"] },
+                { court: "魚津", keywords: ["魚津市", "黒部市", "下新川郡入善町", "下新川郡朝日町"] },
+                { court: "高岡", keywords: ["高岡市", "氷見市", "小矢部市", "射水市"] },
+                { court: "砺波", keywords: ["砺波市", "南砺市"] },
+                { court: "金沢", keywords: ["金沢市", "白山市", "野々市市", "河北郡津幡町", "河北郡内灘町", "かほく市"] },
+                { court: "小松", keywords: ["小松市", "加賀市", "能美市", "能美郡川北町"] },
+                { court: "七尾", keywords: ["七尾市", "羽咋市", "羽咋郡志賀町", "羽咋郡宝達志水町", "鹿島郡中能登町"] },
+                { court: "輪島", keywords: ["輪島市", "鳳珠郡穴水町", "鳳珠郡能登町"] },
+                { court: "珠洲", keywords: ["珠洲市"] },
+                { court: "福井", keywords: ["福井市", "あわら市", "坂井市", "吉田郡永平寺町", "大野市", "勝山市"] },
+                { court: "武生", keywords: ["越前市", "鯖江市", "今立郡池田町", "南条郡南越前町", "丹生郡越前町"] },
+                { court: "敦賀", keywords: ["敦賀市", "三方郡美浜町", "三方上中郡若狭町"] },
+                { court: "小浜", keywords: ["小浜市", "大飯郡高浜町", "大飯郡おおい町"] },
+                { court: "甲府", keywords: ["甲府市", "山梨市", "甲斐市", "笛吹市", "甲州市", "中央市", "中巨摩郡昭和町"] },
+                { court: "鰍沢", keywords: ["南アルプス市", "西八代郡市川三郷町", "南巨摩郡早川町", "南巨摩郡身延町", "南巨摩郡南部町", "南巨摩郡富士川町"] },
+                { court: "都留", keywords: ["都留市", "大月市", "上野原市", "南都留郡道志村", "南都留郡西桂町", "北都留郡小菅村", "北都留郡丹波山村"] },
+                { court: "富士吉田", keywords: ["富士吉田市", "南都留郡忍野村", "南都留郡山中湖村", "南都留郡鳴沢村", "南都留郡富士河口湖町"] },
+                { court: "長野", keywords: ["長野市", "須坂市", "上高井郡小布施町", "上高井郡高山村", "上水内郡信濃町", "上水内郡飯綱町", "上水内郡小川村"] },
+                { court: "飯山", keywords: ["飯山市", "中野市", "下高井郡山ノ内町", "下高井郡木島平村", "下高井郡野沢温泉村", "下水内郡栄村"] },
+                { court: "上田", keywords: ["上田市", "東御市", "小県郡長和町", "小県郡青木村"] },
+                { court: "佐久", keywords: ["小諸市", "佐久市", "南佐久郡小海町", "南佐久郡川上村", "南佐久郡南牧村", "南佐久郡南相木村", "南佐久郡北相木村", "南佐久郡佐久穂町", "北佐久郡軽井沢町", "北佐久郡御代田町", "北佐久郡立科町"] },
+                { court: "松本", keywords: ["松本市", "塩尻市", "安曇野市", "東筑摩郡麻績村", "東筑摩郡生坂村", "東筑摩郡山形村", "東筑摩郡朝日村", "東筑摩郡筑北村"] },
+                { court: "木曾福島", keywords: ["木曽郡上松町", "木曽郡南木曽町", "木曽郡木祖村", "木曽郡王滝村", "木曽郡大桑村", "木曽郡木曽町"] },
+                { court: "大町", keywords: ["大町市", "北安曇郡池田町", "北安曇郡松川村", "北安曇郡白馬村", "北安曇郡小谷村"] },
+                { court: "諏訪", keywords: ["岡谷市", "諏訪市", "茅野市", "諏訪郡下諏訪町", "諏訪郡富士見町", "諏訪郡原村"] },
+                { court: "飯田", keywords: ["飯田市", "下伊那郡松川町", "下伊那郡高森町", "下伊那郡阿南町", "下伊那郡阿智村", "下伊那郡平谷村", "下伊那郡根羽村", "下伊那郡下條村", "下伊那郡売木村", "下伊那郡天龍村", "下伊那郡泰阜村", "下伊那郡喬木村", "下伊那郡豊丘村", "下伊那郡大鹿村"] },
+                { court: "伊那", keywords: ["伊那市", "駒ヶ根市", "上伊那郡辰野町", "上伊那郡箕輪町", "上伊那郡飯島町", "上伊那郡南箕輪村", "上伊那郡中川村", "上伊那郡宮田村"] },
+                { court: "岐阜", keywords: ["岐阜市", "関市", "美濃市", "羽島市", "各務原市", "山県市", "瑞穂市", "本巣市", "羽島郡岐南町", "羽島郡笠松町", "本巣郡北方町"] },
+                { court: "郡上", keywords: ["郡上市"] },
+                { court: "大垣", keywords: ["大垣市", "海津市", "養老郡養老町", "不破郡垂井町", "不破郡関ケ原町", "安八郡神戸町", "安八郡輪之内町", "安八郡安八町", "揖斐郡揖斐川町", "揖斐郡大野町", "揖斐郡池田町"] },
+                { court: "多治見", keywords: ["多治見市", "瑞浪市", "土岐市"] },
+                { court: "中津川", keywords: ["中津川市", "恵那市"] },
+                { court: "御嵩", keywords: ["美濃加茂市", "可児市", "加茂郡坂祝町", "加茂郡富加町", "加茂郡川辺町", "加茂郡七宗町", "加茂郡八百津町", "加茂郡白川町", "加茂郡東白川村", "可児郡御嵩町"] },
+                { court: "高山", keywords: ["高山市", "飛騨市", "下呂市", "大野郡白川村"] },
+                { court: "静岡", keywords: ["静岡市葵区", "静岡市駿河区"] }, // 静岡は区で分かれる
+                { court: "清水", keywords: ["静岡市清水区"] },
+                { court: "沼津", keywords: ["沼津市", "御殿場市", "裾野市", "駿東郡清水町", "駿東郡長泉町", "駿東郡小山町"] },
+                { court: "熱海", keywords: ["熱海市", "伊東市"] },
+                { court: "三島", keywords: ["三島市", "伊豆市", "伊豆の国市", "田方郡函南町"] },
+                { court: "下田", keywords: ["下田市", "賀茂郡東伊豆町", "賀茂郡河津町", "賀茂郡南伊豆町", "賀茂郡松崎町", "賀茂郡西伊豆町"] },
+                { court: "富士", keywords: ["富士市", "富士宮市"] },
+                { court: "浜松", keywords: ["浜松市", "中区", "東区", "西区", "南区", "北区", "浜北区", "天竜区", "湖西市"] },
+                { court: "掛川", keywords: ["掛川市", "御前崎市", "菊川市"] },
+                { court: "磐田", keywords: ["磐田市", "袋井市", "周智郡森町"] },
+                { court: "島田", keywords: ["島田市", "焼津市", "藤枝市", "牧之原市", "榛原郡吉田町", "榛原郡川根本町"] },
+                { court: "名古屋", keywords: ["名古屋市", "豊明市", "日進市", "清須市", "北名古屋市", "愛知郡東郷町", "西春日井郡豊山町", "あま市", "海部郡大治町", "海部郡蟹江町", "海部郡飛島村", "瀬戸市", "尾張旭市", "長久手市", "津島市", "愛西市", "弥富市"] },
+                { court: "春日井", keywords: ["春日井市", "小牧市"] },
+                { court: "一宮", keywords: ["一宮市", "稲沢市"] }, // ※愛知一宮
+                { court: "犬山", keywords: ["犬山市", "江南市", "岩倉市", "丹羽郡大口町", "丹羽郡扶桑町"] },
+                { court: "半田", keywords: ["半田市", "常滑市", "東海市", "大府市", "知多市", "知多郡阿久比町", "知多郡東浦町", "知多郡南知多町", "知多郡美浜町", "知多郡武豊町"] },
+                { court: "岡崎", keywords: ["岡崎市", "額田郡幸田町"] },
+                { court: "安城", keywords: ["安城市", "碧南市", "刈谷市", "知立市", "高浜市"] },
+                { court: "豊田", keywords: ["豊田市", "みよし市"] },
+                { court: "豊橋", keywords: ["豊橋市", "豊川市", "蒲郡市", "田原市"] },
+                { court: "新城", keywords: ["新城市", "北設楽郡設楽町", "北設楽郡東栄町", "北設楽郡豊根村"] },
+                { court: "西尾", keywords: ["西尾市"] },
+                { court: "津", keywords: ["津市", "亀山市", "松阪市", "多気郡多気町", "多気郡明和町", "多気郡大台町"] },
+                { court: "伊賀", keywords: ["名張市", "伊賀市"] },
+                { court: "四日市", keywords: ["四日市市", "三重郡菰野町", "三重郡朝日町", "三重郡川越町", "鈴鹿市"] },
+                { court: "桑名", keywords: ["桑名市", "いなべ市", "桑名郡木曽岬町", "員弁郡東員町"] },
+                { court: "伊勢", keywords: ["伊勢市", "鳥羽市", "志摩市", "度会郡玉城町", "度会郡度会町", "度会郡大紀町", "度会郡南伊勢町"] },
+                { court: "熊野", keywords: ["尾鷲市", "熊野市", "北牟婁郡紀北町", "南牟婁郡御浜町", "南牟婁郡紀宝町"] },
+                { court: "大津", keywords: ["大津市", "草津市", "守山市", "栗東市", "甲賀市", "野洲市", "湖南市"] },
+                { court: "高島", keywords: ["高島市"] },
+                { court: "彦根", keywords: ["彦根市", "愛知郡愛荘町", "犬上郡豊郷町", "犬上郡甲良町", "犬上郡多賀町"] },
+                { court: "東近江", keywords: ["東近江市", "近江八幡市", "蒲生郡日野町", "蒲生郡竜王町"] },
+                { court: "長浜", keywords: ["長浜市", "米原市"] },
+                { court: "京都", keywords: ["京都市", "北区", "上京区", "左京区", "中京区", "東山区", "山科区", "下京区", "南区", "右京区", "西京区", "西京区", "伏見区", "向日市", "長岡京市", "乙訓郡大山崎町", "宇治市", "城陽市", "八幡市", "京田辺市", "久世郡久御山町", "綴喜郡井手町", "綴喜郡宇治田原町", "木津川市", "相楽郡笠置町", "相楽郡和束町", "相楽郡精華町", "相楽郡南山城村", "南丹市", "亀岡市", "船井郡京丹波町"] },
+                { court: "園部", keywords: ["南丹市", "亀岡市", "船井郡京丹波町"] }, // ※一部京都と重複するが支部管轄
+                { court: "宮津", keywords: ["宮津市", "京丹後市", "与謝郡伊根町", "与謝郡与謝野町"] },
+                { court: "舞鶴", keywords: ["舞鶴市"] },
+                { court: "福知山", keywords: ["福知山市", "綾部市"] },
+                { court: "大阪", keywords: ["大阪市", "北区", "都島区", "福島区", "此花区", "中央区", "西区", "港区", "大正区", "天王寺区", "浪速区", "西淀川区", "淀川区", "東淀川区", "東成区", "生野区", "旭区", "城東区", "鶴見区", "阿倍野区", "住之江区", "住吉区", "東住吉区", "平野区", "西成区", "豊中市", "池田市", "吹田市", "箕面市", "豊能郡豊能町", "豊能郡能勢町", "東大阪市", "八尾市"] },
+                { court: "堺", keywords: ["堺市", "堺区", "中区", "東区", "西区", "南区", "北区", "美原区", "高石市", "大阪狭山市"] },
+                { court: "岸和田", keywords: ["岸和田市", "泉大津市", "貝塚市", "泉佐野市", "和泉市", "泉南市", "阪南市", "泉北郡忠岡町", "泉南郡熊取町", "泉南郡田尻町", "泉南郡岬町"] },
+                { court: "富田林", keywords: ["富田林市", "河内長野市", "羽曳野市", "藤井寺市", "松原市", "柏原市", "南河内郡太子町", "南河内郡河南町", "南河内郡千早赤阪村"] },
+                { court: "枚方", keywords: ["枚方市", "守口市", "寝屋川市", "大東市", "門真市", "四條畷市", "交野市"] },
+                { court: "茨木", keywords: ["茨木市", "高槻市", "摂津市", "三島郡島本町"] },
+                { court: "佐野", keywords: ["泉佐野市", "泉南市", "阪南市", "泉南郡熊取町", "泉南郡田尻町", "泉南郡岬町"] }, // ※岸和田支部内佐野簡裁
+                { court: "羽曳野", keywords: ["羽曳野市", "松原市", "柏原市", "藤井寺市"] }, // ※富田林支部内羽曳野簡裁
+                { court: "神戸", keywords: ["神戸市", "東灘区", "灘区", "中央区", "兵庫区", "北区", "長田区", "須磨区", "垂水区", "西区", "三木市"] },
+                { court: "伊丹", keywords: ["伊丹市", "宝塚市", "川西市", "川辺郡猪名川町"] },
+                { court: "尼崎", keywords: ["尼崎市", "西宮市", "芦屋市"] },
+                { court: "明石", keywords: ["明石市", "神戸市西区"] }, // 西区は明石とも被る
+                { court: "柏原", keywords: ["丹波市"] },
+                { court: "篠山", keywords: ["丹波篠山市"] },
+                { court: "姫路", keywords: ["姫路市", "相生市", "加古川市", "赤穂市", "高砂市", "加西市", "宍粟市", "たつの市", "加古郡稲美町", "加古郡播磨町", "神崎郡市川町", "神崎郡福崎町", "神崎郡神河町", "揖保郡太子町", "赤穂郡上郡町", "佐用郡佐用町"] },
+                { court: "社", keywords: ["西脇市", "小野市", "加東市", "多可郡多可町"] },
+                { court: "龍野", keywords: ["たつの市", "宍粟市", "揖保郡太子町", "佐用郡佐用町"] }, // ※姫路支部内龍野簡裁
+                { court: "豊岡", keywords: ["豊岡市", "養父市", "朝来市", "美方郡香美町", "美方郡新温泉町"] },
+                { court: "洲本", keywords: ["洲本市", "淡路市", "南あわじ市"] },
+                { court: "奈良", keywords: ["奈良市", "大和郡山市", "天理市", "桜井市", "生駒市", "山辺郡山添村", "生駒郡平群町", "生駒郡三郷町", "生駒郡斑鳩町", "生駒郡安堵町", "磯城郡川西町", "磯城郡三宅町", "磯城郡田原本町", "宇陀市", "宇陀郡曽爾村", "宇陀郡御杖村"] },
+                { court: "葛城", keywords: ["大和高田市", "橿原市", "御所市", "香芝市", "葛城市", "高市郡高取町", "高市郡明日香村", "北葛城郡上牧町", "北葛城郡王寺町", "北葛城郡広陵町", "北葛城郡河合町"] },
+                { court: "五條", keywords: ["五條市"] },
+                { court: "吉野", keywords: ["吉野郡吉野町", "吉野郡大淀町", "吉野郡下市町", "吉野郡黒滝村", "吉野郡天川村", "吉野郡野迫川村", "吉野郡十津川村", "吉野郡下北山村", "吉野郡上北山村", "吉野郡川上村", "吉野郡東吉野村"] },
+                { court: "和歌山", keywords: ["和歌山市", "海南市", "紀の川市", "岩出市", "海草郡紀美野町"] },
+                { court: "橋本", keywords: ["橋本市", "伊都郡かつらぎ町", "伊都郡九度山町", "伊都郡高野町"] },
+                { court: "妙寺", keywords: ["紀の川市", "岩出市", "伊都郡かつらぎ町"] }, // 簡裁管轄重複あり
+                { court: "田辺", keywords: ["田辺市", "西牟婁郡白浜町", "西牟婁郡上富田町", "西牟婁郡すさみ町", "日高郡みなべ町", "日高郡印南町", "日高郡日高川町"] },
+                { court: "御坊", keywords: ["御坊市", "日高郡美浜町", "日高郡日高町", "日高郡由良町", "日高郡印南町", "日高郡みなべ町", "日高郡日高川町"] },
+                { court: "新宮", keywords: ["新宮市", "東牟婁郡那智勝浦町", "東牟婁郡太地町", "東牟婁郡古座川町", "東牟婁郡北山村", "東牟婁郡串本町"] },
+                { court: "鳥取", keywords: ["鳥取市", "岩美郡岩美町", "八頭郡若桜町", "八頭郡智頭町", "八頭郡八頭町"] },
+                { court: "倉吉", keywords: ["倉吉市", "東伯郡三朝町", "東伯郡湯梨浜町", "東伯郡琴浦町", "東伯郡北栄町"] },
+                { court: "米子", keywords: ["米子市", "境港市", "西伯郡日吉津村", "西伯郡大山町", "西伯郡南部町", "西伯郡伯耆町", "日野郡日南町", "日野郡日野町", "日野郡江府町"] },
+                { court: "松江", keywords: ["松江市", "安来市"] },
+                { court: "出雲", keywords: ["出雲市", "雲南市", "仁多郡奥出雲町", "飯石郡飯南町"] },
+                { court: "浜田", keywords: ["浜田市", "江津市", "邑智郡川本町", "邑智郡美郷町", "邑智郡邑南町"] },
+                { court: "益田", keywords: ["益田市", "鹿足郡津和野町", "鹿足郡吉賀町"] },
+                { court: "西郷", keywords: ["隠岐郡海士町", "隠岐郡西ノ島町", "隠岐郡知夫村", "隠岐郡隠岐の島町"] },
+                { court: "岡山", keywords: ["岡山市", "北区", "中区", "東区", "南区", "玉野市", "瀬戸内市", "加賀郡吉備中央町", "備前市", "赤磐市", "和気郡和気町"] },
+                { court: "倉敷", keywords: ["倉敷市", "総社市", "都窪郡早島町"] },
+                { court: "児島", keywords: ["倉敷市児島"] }, // ※特例
+                { court: "玉島", keywords: ["倉敷市玉島", "倉敷市船穂", "浅口市", "浅口郡里庄町"] },
+                { court: "津山", keywords: ["津山市", "美作市", "苫田郡鏡野町", "勝田郡勝央町", "勝田郡奈義町", "英田郡西粟倉村", "久米郡久米南町", "久米郡美咲町", "真庭市", "真庭郡新庄村"] },
+                { court: "高梁", keywords: ["高梁市", "加賀郡吉備中央町"] },
+                { court: "新見", keywords: ["新見市"] },
+                { court: "広島", keywords: ["広島市", "中区", "東区", "南区", "西区", "安佐南区", "安佐北区", "安芸区", "佐伯区", "安芸郡府中町", "安芸郡海田町", "安芸郡熊野町", "安芸郡坂町", "廿日市市", "大竹市", "山県郡安芸太田町", "山県郡北広島町", "安芸高田市", "東広島市"] },
+                { court: "可部", keywords: ["広島市安佐北区", "安芸高田市", "山県郡安芸太田町", "山県郡北広島町"] },
+                { court: "呉", keywords: ["呉市", "江田島市"] },
+                { court: "竹原", keywords: ["竹原市", "豊田郡大崎上島町", "東広島市安芸津町"] },
+                { court: "尾道", keywords: ["尾道市", "三原市", "世羅郡世羅町"] },
+                { court: "福山", keywords: ["福山市", "府中市", "神石郡神石高原町"] },
+                { court: "三次", keywords: ["三次市", "庄原市"] },
+                { court: "山口", keywords: ["山口市", "防府市"] },
+                { court: "周南", keywords: ["下松市", "光市", "周南市"] },
+                { court: "萩", keywords: ["萩市", "長門市", "阿武郡阿武町"] },
+                { court: "岩国", keywords: ["岩国市", "柳井市", "大島郡周防大島町", "玖珂郡和木町", "熊毛郡上関町", "熊毛郡田布施町", "熊毛郡平生町"] },
+                { court: "下関", keywords: ["下関市"] },
+                { court: "宇部", keywords: ["宇部市", "山陽小野田市", "美祢市"] },
+                { court: "徳島", keywords: ["徳島市", "小松島市", "勝浦郡勝浦町", "勝浦郡上勝町", "名東郡佐那河内村", "名西郡石井町", "名西郡神山町", "板野郡松茂町", "板野郡北島町", "板野郡藍住町", "板野郡板野町", "板野郡上板町", "鳴門市", "吉野川市", "阿波市"] },
+                { court: "阿南", keywords: ["阿南市", "那賀郡那賀町", "海部郡牟岐町", "海部郡美波町", "海部郡海陽町"] },
+                { court: "美馬", keywords: ["美馬市", "美馬郡つるぎ町", "三好市", "三好郡東みよし町"] },
+                { court: "高松", keywords: ["高松市", "さぬき市", "東かがわ市", "木田郡三木町", "香川郡直島町", "小豆郡土庄町", "小豆郡小豆島町"] },
+                { court: "丸亀", keywords: ["丸亀市", "坂出市", "善通寺市", "綾歌郡宇多津町", "綾歌郡綾川町", "仲多度郡多度津町"] },
+                { court: "観音寺", keywords: ["観音寺市", "三豊市"] },
+                { court: "松山", keywords: ["松山市", "伊予市", "東温市", "上浮穴郡久万高原町", "伊予郡松前町", "伊予郡砥部町"] },
+                { court: "大洲", keywords: ["大洲市", "八幡浜市", "西予市", "喜多郡内子町", "西宇和郡伊方町"] },
+                { court: "西条", keywords: ["西条市", "新居浜市", "四国中央市"] },
+                { court: "今治", keywords: ["今治市", "越智郡上島町"] },
+                { court: "宇和島", keywords: ["宇和島市", "北宇和郡松野町", "北宇和郡鬼北町", "南宇和郡愛南町"] },
+                { court: "高知", keywords: ["高知市", "南国市", "土佐市", "香南市", "香美市", "長岡郡本山町", "長岡郡大豊町", "土佐郡土佐町", "土佐郡大川村", "吾川郡いの町", "吾川郡仁淀川町", "高岡郡日高村"] },
+                { court: "須崎", keywords: ["須崎市", "高岡郡中土佐町", "高岡郡佐川町", "高岡郡越知町", "高岡郡四万十町", "高岡郡檮原町", "高岡郡津野町"] },
+                { court: "安芸", keywords: ["安芸市", "室戸市", "安芸郡東洋町", "安芸郡奈半利町", "安芸郡田野町", "安芸郡安田町", "安芸郡北川村", "安芸郡馬路村", "安芸郡芸西村"] },
+                { court: "中村", keywords: ["四万十市", "宿毛市", "土佐清水市", "幡多郡黒潮町", "幡多郡大月町", "幡多郡三原村"] },
+                { court: "福岡", keywords: ["福岡市", "筑紫野市", "春日市", "大野城市", "宗像市", "太宰府市", "古賀市", "福津市", "糸島市", "那珂川市", "糟屋郡宇美町", "糟屋郡篠栗町", "糟屋郡志免町", "糟屋郡須恵町", "糟屋郡新宮町", "糟屋郡久山町", "糟屋郡粕屋町"] },
+                { court: "飯塚", keywords: ["飯塚市", "嘉麻市", "嘉穂郡桂川町"] },
+                { court: "直方", keywords: ["直方市", "宮若市", "鞍手郡小竹町", "鞍手郡鞍手町"] },
+                { court: "田川", keywords: ["田川市", "田川郡香春町", "田川郡添田町", "田川郡糸田町", "田川郡川崎町", "田川郡大任町", "田川郡赤村", "田川郡福智町"] },
+                { court: "久留米", keywords: ["久留米市", "小郡市", "うきは市", "三井郡大刀洗町", "三潴郡大木町"] },
+                { court: "柳川", keywords: ["大川市", "柳川市", "みやま市"] },
+                { court: "大牟田", keywords: ["大牟田市"] },
+                { court: "八女", keywords: ["八女市", "筑後市", "八女郡広川町"] },
+                { court: "小倉", keywords: ["北九州市小倉北区", "北九州市小倉南区", "北九州市門司区", "北九州市戸畑区"] },
+                { court: "折尾", keywords: ["北九州市八幡西区", "北九州市八幡東区", "北九州市若松区", "中間市", "遠賀郡芦屋町", "遠賀郡水巻町", "遠賀郡岡垣町", "遠賀郡遠賀町"] },
+                { court: "行橋", keywords: ["行橋市", "豊前市", "京都郡苅田町", "京都郡みやこ町", "築上郡吉富町", "築上郡上毛町", "築上郡築上町"] },
+                { court: "佐賀", keywords: ["佐賀市", "多久市", "小城市", "神埼市", "神埼郡吉野ヶ里町"] },
+                { court: "武雄", keywords: ["武雄市", "鹿島市", "嬉野市", "杵島郡大町町", "杵島郡江北町", "杵島郡白石町", "藤津郡太良町"] },
+                { court: "唐津", keywords: ["唐津市", "東松浦郡玄海町"] },
+                { court: "伊万里", keywords: ["伊万里市", "西松浦郡有田町"] },
+                { court: "鳥栖", keywords: ["鳥栖市", "三養基郡基山町", "三養基郡上峰町", "三養基郡みやき町"] },
+                { court: "長崎", keywords: ["長崎市", "西海市", "西彼杵郡長与町", "西彼杵郡時津町"] },
+                { court: "大村", keywords: ["大村市", "東彼杵郡東彼杵町"] },
+                { court: "諫早", keywords: ["諫早市"] },
+                { court: "島原", keywords: ["島原市", "雲仙市", "南島原市"] },
+                { court: "佐世保", keywords: ["佐世保市", "西海市", "佐々町", "川棚町", "波佐見町", "小値賀町"] }, // 簡略
+                { court: "平戸", keywords: ["平戸市", "松浦市"] },
+                { court: "五島", keywords: ["五島市", "南松浦郡新上五島町"] },
+                { court: "壱岐", keywords: ["壱岐市"] },
+                { court: "対馬", keywords: ["対馬市"] },
+                { court: "熊本", keywords: ["熊本市", "宇土市", "宇城市", "合志市", "下益城郡美里町", "菊池郡大津町", "菊池郡菊陽町", "上益城郡御船町", "上益城郡嘉島町", "上益城郡益城町", "上益城郡甲佐町", "上益城郡山都町"] },
+                { court: "玉名", keywords: ["玉名市", "荒尾市", "玉名郡玉東町", "玉名郡南関町", "玉名郡長洲町", "玉名郡和水町"] },
+                { court: "山鹿", keywords: ["山鹿市", "菊池市"] },
+                { court: "阿蘇", keywords: ["阿蘇市", "阿蘇郡南小国町", "阿蘇郡小国町", "阿蘇郡産山村", "阿蘇郡高森町", "阿蘇郡西原村", "阿蘇郡南阿蘇村"] },
+                { court: "八代", keywords: ["八代市", "八代郡氷川町"] },
+                { court: "人吉", keywords: ["人吉市", "球磨郡錦町", "球磨郡多良木町", "球磨郡湯前町", "球磨郡水上村", "球磨郡相良村", "球磨郡五木村", "球磨郡山江村", "球磨郡球磨村", "球磨郡あさぎり町"] },
+                { court: "天草", keywords: ["天草市", "上天草市", "天草郡苓北町"] },
+                { court: "大分", keywords: ["大分市", "臼杵市", "津久見市", "由布市", "豊後大野市"] },
+                { court: "別府", keywords: ["別府市"] }, // 大分に統合？確認
+                { court: "杵築", keywords: ["杵築市", "国東市", "速見郡日出町", "東国東郡姫島村"] },
+                { court: "佐伯", keywords: ["佐伯市"] },
+                { court: "竹田", keywords: ["竹田市", "豊後大野市"] },
+                { court: "中津", keywords: ["中津市", "宇佐市"] },
+                { court: "豊後高田", keywords: ["豊後高田市"] },
+                { court: "日田", keywords: ["日田市", "玖珠郡九重町", "玖珠郡玖珠町"] },
+                { court: "宮崎", keywords: ["宮崎市", "国富町", "綾町", "西都市", "高鍋町", "新富町", "西米良村", "木城町", "川南町", "都農町"] },
+                { court: "日南", keywords: ["日南市", "串間市"] },
+                { court: "都城", keywords: ["都城市", "小林市", "えびの市", "三股町", "高原町"] },
+                { court: "延岡", keywords: ["延岡市", "日向市", "門川町", "諸塚村", "椎葉村", "美郷町", "高千穂町", "日之影町", "五ヶ瀬町"] },
+                { court: "鹿児島", keywords: ["鹿児島市", "日置市", "いちき串木野市", "三島村", "十島村"] },
+                { court: "名瀬", keywords: ["奄美市", "大和村", "宇検村", "瀬戸内町", "龍郷町", "喜界町"] },
+                { court: "加治木", keywords: ["霧島市", "姶良市", "伊佐市", "湧水町"] },
+                { court: "知覧", keywords: ["南九州市", "南さつま市", "枕崎市"] },
+                { court: "川内", keywords: ["薩摩川内市", "阿久根市", "出水市", "さつま町", "長島町"] },
+                { court: "鹿屋", keywords: ["鹿屋市", "垂水市", "曽於市", "志布志市", "大崎町", "東串良町", "錦江町", "南大隅町", "肝付町"] },
+                { court: "那覇", keywords: ["那覇市", "浦添市", "糸満市", "豊見城市", "南城市", "西原町", "与那原町", "南風原町", "渡嘉敷村", "座間味村", "粟国村", "渡名喜村", "南大東村", "北大東村", "久米島町", "八重瀬町"] },
+                { court: "沖縄", keywords: ["沖縄市", "宜野湾市", "うるま市", "読谷村", "嘉手納町", "北谷町", "北中城村", "中城村"] },
+                { court: "名護", keywords: ["名護市", "国頭村", "大宜味村", "東村", "今帰仁村", "本部町", "恩納村", "宜野座村", "金武町", "伊江村", "伊平屋村", "伊是名村"] },
+                { court: "平良", keywords: ["宮古島市", "多良間村"] },
+                { court: "石垣", keywords: ["石垣市", "竹富町", "与那国町"] }
+            ];
+
+            // デフォルトの初期値
+            const initialData = {
+                courtName: '',
+                date: new Date().toISOString().split('T')[0],
+                creditor: { name: '', repName: '', address: '', postalCode: '', phone: '', fax: '' },
+                debtor: { name: '', repName: '', address: '', postalCode: '', phone: '', fax: '' },
+                loan: {
+                    date: '', amount: '', hasInterest: 'no', interestRate: '',
+                    hasDeadline: 'no', deadlineDate: '', deadlineNoticeDate1: '', deadlineNoticeDate2: '',
+                    hasDelayDamages: 'no', delayDamagesRate: '',
+                    hasGuarantor: 'no', guarantorName: '',
+                    specialCondition: '', repaymentStatus: 'none',
+                    repaymentHistory: [{ date: '', amount: '', interestAlloc: 0, principalAlloc: 0, balance: 0 }]
+                },
+                claim: { principal: '', interest: '0', delayDamages: '0', delayDamagesRate: '3', startDate: '', startDateMode: 'served_next' },
+                costs: { fee: '' }, 
+                attachments: { cert: false, other1: '', other2: '' }
+            };
+
+            const [formData, setFormData] = useState(initialData);
+            const [jurisdictionMessage, setJurisdictionMessage] = useState('');
+            const [isSearching, setIsSearching] = useState(false);
+            const [calculatedHistory, setCalculatedHistory] = useState([]);
+
+            // 住所検索
+            const searchAddress = async (postalCode, target) => {
+                if (!postalCode || postalCode.length < 7) {
+                    alert("7桁の郵便番号を入力してください");
+                    return;
+                }
+                setIsSearching(true);
+                try {
+                    const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${postalCode}`);
+                    const data = await response.json();
+                    if (data.results) {
+                        const result = data.results[0];
+                        const fullAddress = result.address1 + result.address2 + result.address3;
+                        if (target === 'creditor') {
+                            setFormData(prev => ({ ...prev, creditor: { ...prev.creditor, address: fullAddress } }));
+                        } else {
+                            setFormData(prev => ({ ...prev, debtor: { ...prev.debtor, address: fullAddress } }));
+                        }
+                    } else {
+                        alert("住所が見つかりませんでした。");
+                    }
+                } catch (error) {
+                    console.error("Address search failed:", error);
+                    alert("住所検索に失敗しました。手動で入力してください。");
+                } finally {
+                    setIsSearching(false);
                 }
             };
-        });
-    };
 
-    const handleRootChange = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-    };
-    const handleHistoryChange = (index, field, value) => {
-        const newHistory = [...formData.loan.repaymentHistory];
-        newHistory[index] = { ...newHistory[index], [field]: value };
-        setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: newHistory } }));
-    };
-    const addHistoryRow = () => {
-        setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: [...prev.loan.repaymentHistory, { date: '', amount: '' }] } }));
-    };
-    const removeHistoryRow = (index) => {
-        const newHistory = formData.loan.repaymentHistory.filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: newHistory } }));
-    };
-    const getTotalCosts = () => {
-        const { fee } = formData.costs;
-        return (parseInt(fee)||0);
-    };
-    const getTotalClaim = () => {
-        const principal = parseInt(formData.claim.principal) || 0;
-        const interest = parseInt(formData.claim.interest) || 0;
-        const delay = parseInt(formData.claim.delayDamages) || 0;
-        return principal + interest + delay;
-    };
-    const formatCurrency = (val) => {
-        if (val === undefined || val === null || val === '') return '';
-        return Number(val).toLocaleString();
-    };
-    const toJapaneseEra = (dateString) => {
-        if (!dateString) return '　　　';
-        const date = new Date(dateString);
-        const year = date.getFullYear();
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-        if (year >= 2019) {
-            const reiwaYear = year - 2018;
-            return `令和 ${reiwaYear === 1 ? '元' : reiwaYear} 年 ${month} 月 ${day} 日`;
-        }
-        return `${year}年 ${month}月 ${day}日`;
-    };
-    const CheckBox = ({ checked, label, noMargin }) => (
-        <span className={`inline-flex items-center ${noMargin ? '' : 'mr-4'}`}>
-            <span className="inline-block border border-black w-4 h-4 mr-1 text-center leading-3 text-sm font-bold relative top-[1px]">
-                {checked ? '✓' : ''}
-            </span>
-            {label && <span>{label}</span>}
-        </span>
-    );
-
-    const RequiredLabel = () => <span className="text-red-500 text-xs ml-1">(必須)</span>;
-
-    return (
-        <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
-            <style>
-                {`
-                @media print {
-                    @page { size: A4; margin: 0; }
-                    body { background: white; -webkit-print-color-adjust: exact; }
-                    .print\\:hidden { display: none !important; }
-                    .print\\:block { display: block !important; }
-                    .print\\:w-full { width: 100% !important; }
-                    .print\\:p-0 { padding: 0 !important; }
-                    .print\\:shadow-none { box-shadow: none !important; }
-                    .page { 
-                        break-after: page; 
-                        height: 297mm; 
-                        width: 210mm; 
-                        padding: 20mm !important; 
-                        margin: 0 !important; 
-                        box-shadow: none !important;
-                        overflow: hidden;
-                        position: relative;
+            // 管轄判定ロジック (キーワード照合)
+            const determineJurisdiction = (address) => {
+                if (!address) return '';
+                // 前方一致や部分一致で検索
+                for (const entry of JURISDICTION_DATA) {
+                    for (const keyword of entry.keywords) {
+                        if (address.includes(keyword)) {
+                            return entry.court;
+                        }
                     }
-                    .print-pages-container { width: 100%; }
                 }
-                .page {
-                    width: 210mm;
-                    height: 297mm;
-                    background: white;
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-                    margin-bottom: 2rem;
-                    padding: 20mm;
-                    color: black;
-                    font-family: "Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
-                    font-size: 12pt;
-                    line-height: 1.6;
-                    position: relative;
-                    overflow: hidden;
+                return '';
+            };
+
+            useEffect(() => {
+                const estimatedCourt = determineJurisdiction(formData.debtor.address);
+                if (estimatedCourt) {
+                    setFormData(prev => ({ ...prev, courtName: estimatedCourt }));
+                    setJurisdictionMessage(`※住所から「${estimatedCourt}簡易裁判所」を自動判定しました。`);
+                } else if (formData.debtor.address.length > 3) {
+                    setJurisdictionMessage('※管轄裁判所を自動判定できませんでした。手動で入力してください。');
+                } else {
+                    setJurisdictionMessage('');
                 }
-                `}
-            </style>
+            }, [formData.debtor.address]);
 
-            <header className="bg-slate-800 text-white p-4 shadow-md print:hidden">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <FileText className="w-6 h-6" />
-                        <h1 className="text-xl font-bold">支払督促申立書 自動作成ツール</h1>
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => { if(window.confirm('リセットしますか？')) setFormData(initialData); }} className="flex items-center gap-1 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded text-slate-200">
-                            <RotateCcw className="w-4 h-4" /> リセット
-                        </button>
-                        <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold shadow">
-                            <Printer className="w-5 h-5" /> PDF保存 / 印刷
-                        </button>
-                    </div>
-                </div>
-            </header>
+            // 手数料計算
+            useEffect(() => {
+                const amount = parseInt(formData.claim.principal) + parseInt(formData.claim.interest || 0);
+                if (!amount || isNaN(amount)) {
+                    setFormData(prev => ({ ...prev, costs: { ...prev.costs, fee: '' } }));
+                    return;
+                }
+                let lawsuitFee = 0;
+                if (amount <= 1000000) {
+                    lawsuitFee = Math.ceil(amount / 100000) * 1000;
+                } else if (amount <= 5000000) {
+                    lawsuitFee = 10000 + Math.ceil((amount - 1000000) / 200000) * 1000;
+                } else if (amount <= 10000000) {
+                    lawsuitFee = 30000 + Math.ceil((amount - 5000000) / 500000) * 2000;
+                } else {
+                    lawsuitFee = 50000 + Math.ceil((amount - 10000000) / 1000000) * 3000;
+                }
+                const paymentOrderFee = Math.floor(lawsuitFee / 2);
+                setFormData(prev => ({
+                    ...prev,
+                    costs: { ...prev.costs, fee: paymentOrderFee.toString() }
+                }));
+            }, [formData.claim.principal, formData.claim.interest]);
 
-            <main className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8">
-                {/* 入力フォーム */}
-                <div className="w-full lg:w-1/3 space-y-6 print:hidden h-[calc(100vh-100px)] overflow-y-auto pr-2">
-                    <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-blue-500">
-                        <h2 className="font-bold text-lg border-b pb-2">1. 当事者</h2>
-                        <div className="bg-blue-50 p-3 rounded space-y-3">
-                            <h3 className="font-bold text-blue-800 text-sm">債権者（あなた）</h3>
-                            <div className="flex items-center"><label className="text-xs font-bold text-gray-500">氏名または会社名</label><RequiredLabel /></div>
-                            <input type="text" placeholder="氏名または会社名" className="w-full p-2 border rounded" value={formData.creditor.name} onChange={(e) => handleChange('creditor', 'name', e.target.value)} />
-                            <input type="text" placeholder="代表者氏名（法人の場合）" className="w-full p-2 border rounded" value={formData.creditor.repName} onChange={(e) => handleChange('creditor', 'repName', e.target.value)} />
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="〒" className="w-24 p-2 border rounded" value={formData.creditor.postalCode} onChange={(e) => handleChange('creditor', 'postalCode', e.target.value)} />
-                                <button onClick={() => searchAddress(formData.creditor.postalCode, 'creditor')} className="bg-blue-200 px-2 rounded flex items-center justify-center w-10 disabled:opacity-50" disabled={isSearching}>
-                                    <Search className="w-4 h-4"/>
+            // 弁済充当ロジック
+            useEffect(() => {
+                const originalAmount = parseInt(formData.loan.amount) || 0;
+                const interestRate = parseFloat(formData.loan.interestRate) || 0;
+                const loanDateStr = formData.loan.date;
+                const history = formData.loan.repaymentHistory;
+
+                if (!originalAmount || !loanDateStr) {
+                    setCalculatedHistory([]);
+                    return;
+                }
+
+                if (formData.loan.repaymentStatus !== 'partial') {
+                    setCalculatedHistory([]);
+                    if (formData.claim.principal !== originalAmount.toString()) {
+                        setFormData(prev => ({ ...prev, claim: { ...prev.claim, principal: originalAmount.toString() } }));
+                    }
+                    return;
+                }
+
+                let currentPrincipal = originalAmount;
+                let lastDate = new Date(loanDateStr);
+                let newHistory = [];
+
+                const sortedHistory = [...history]
+                    .filter(h => h.date && h.amount)
+                    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                for (const payment of sortedHistory) {
+                    const paymentDate = new Date(payment.date);
+                    const paymentAmount = parseInt(payment.amount) || 0;
+                    const diffTime = paymentDate - lastDate;
+                    const diffDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+                    let interest = 0;
+                    if (formData.loan.hasInterest === 'yes') {
+                        interest = Math.floor(currentPrincipal * (interestRate / 100) * diffDays / 365);
+                    }
+
+                    let interestAlloc = 0;
+                    let principalAlloc = 0;
+
+                    if (paymentAmount >= interest) {
+                        interestAlloc = interest;
+                        principalAlloc = paymentAmount - interest;
+                    } else {
+                        interestAlloc = paymentAmount;
+                        principalAlloc = 0;
+                    }
+
+                    currentPrincipal = Math.max(0, currentPrincipal - principalAlloc);
+                    
+                    newHistory.push({
+                        ...payment,
+                        interestAlloc,
+                        principalAlloc,
+                        balance: currentPrincipal,
+                        days: diffDays,
+                        accruedInterest: interest
+                    });
+
+                    lastDate = paymentDate;
+                }
+
+                setCalculatedHistory(newHistory);
+
+                if (currentPrincipal.toString() !== formData.claim.principal) {
+                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, principal: currentPrincipal.toString() } }));
+                }
+
+            }, [
+                formData.loan.amount, 
+                formData.loan.date, 
+                formData.loan.interestRate, 
+                formData.loan.hasInterest, 
+                formData.loan.repaymentStatus, 
+                formData.loan.repaymentHistory
+            ]);
+
+            // 利息計算（残元金に対する）
+            useEffect(() => {
+                if (formData.loan.hasInterest === 'yes' && formData.loan.hasDeadline === 'yes' && 
+                    formData.loan.date && formData.loan.deadlineDate && formData.claim.principal) {
+                    if (formData.loan.repaymentStatus === 'partial') {
+                        setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: '0' } }));
+                    } else {
+                        const principal = parseInt(formData.claim.principal);
+                        const rate = parseFloat(formData.loan.interestRate);
+                        const start = new Date(formData.loan.date);
+                        const end = new Date(formData.loan.deadlineDate);
+                        if (!isNaN(principal) && !isNaN(rate) && start && end && end > start) {
+                            const diffTime = Math.abs(end - start);
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                            const interest = Math.floor(principal * (rate / 100) * diffDays / 365);
+                            setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: interest.toString() } }));
+                        }
+                    }
+                } else if (formData.loan.hasInterest === 'no') {
+                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, interest: '0' } }));
+                }
+            }, [formData.loan.hasInterest, formData.loan.hasDeadline, formData.loan.date, formData.loan.deadlineDate, formData.loan.interestRate, formData.claim.principal, formData.loan.repaymentStatus]);
+
+            useEffect(() => {
+                if (formData.loan.hasInterest === 'yes' && formData.loan.interestRate) {
+                    setFormData(prev => ({
+                        ...prev,
+                        loan: { ...prev.loan, delayDamagesRate: formData.loan.interestRate, hasDelayDamages: 'yes' },
+                        claim: { ...prev.claim, delayDamagesRate: formData.loan.interestRate }
+                    }));
+                } else if (formData.loan.hasInterest === 'no') {
+                    setFormData(prev => ({ ...prev, claim: { ...prev.claim, delayDamagesRate: '3' } }));
+                }
+            }, [formData.loan.hasInterest, formData.loan.interestRate]);
+
+            // バリデーションチェック
+            const validateForm = () => {
+                const errors = [];
+                if (!formData.creditor.name) errors.push("債権者の氏名");
+                if (!formData.creditor.address) errors.push("債権者の住所");
+                if (!formData.creditor.phone) errors.push("債権者の電話番号");
+                if (!formData.debtor.name) errors.push("債務者の氏名");
+                if (!formData.debtor.address) errors.push("債務者の住所");
+                if (!formData.loan.amount) errors.push("貸付金額");
+
+                if (errors.length > 0) {
+                    alert(`以下の必須項目が入力されていません：\n・${errors.join('\n・')}\n\n※法人の場合は代表者氏名も入力されているか確認してください。`);
+                    return false;
+                }
+                return true;
+            };
+
+            const handlePrint = () => {
+                if (validateForm()) {
+                    window.print();
+                }
+            };
+
+            const handleChange = (section, field, value) => {
+                setFormData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
+            };
+            
+            const handleDeadlineNoticeDate1Change = (e) => {
+                const val = e.target.value;
+                setFormData(prev => {
+                    let nextDeadline = prev.loan.deadlineNoticeDate2;
+                    if (val) {
+                        const date = new Date(val);
+                        date.setDate(date.getDate() + 7);
+                        nextDeadline = date.toISOString().split('T')[0];
+                    }
+                    return {
+                        ...prev,
+                        loan: { 
+                            ...prev.loan, 
+                            deadlineNoticeDate1: val,
+                            deadlineNoticeDate2: nextDeadline
+                        }
+                    };
+                });
+            };
+
+            const handleRootChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+            };
+            const handleHistoryChange = (index, field, value) => {
+                const newHistory = [...formData.loan.repaymentHistory];
+                newHistory[index] = { ...newHistory[index], [field]: value };
+                setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: newHistory } }));
+            };
+            const addHistoryRow = () => {
+                setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: [...prev.loan.repaymentHistory, { date: '', amount: '' }] } }));
+            };
+            const removeHistoryRow = (index) => {
+                const newHistory = formData.loan.repaymentHistory.filter((_, i) => i !== index);
+                setFormData(prev => ({ ...prev, loan: { ...prev.loan, repaymentHistory: newHistory } }));
+            };
+            const getTotalCosts = () => {
+                const { fee } = formData.costs;
+                return (parseInt(fee)||0);
+            };
+            const getTotalClaim = () => {
+                const principal = parseInt(formData.claim.principal) || 0;
+                const interest = parseInt(formData.claim.interest) || 0;
+                const delay = parseInt(formData.claim.delayDamages) || 0;
+                return principal + interest + delay;
+            };
+            const formatCurrency = (val) => {
+                if (val === undefined || val === null || val === '') return '';
+                return Number(val).toLocaleString();
+            };
+            const toJapaneseEra = (dateString) => {
+                if (!dateString) return '　　　';
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                if (year >= 2019) {
+                    const reiwaYear = year - 2018;
+                    return `令和 ${reiwaYear === 1 ? '元' : reiwaYear} 年 ${month} 月 ${day} 日`;
+                }
+                return `${year}年 ${month}月 ${day}日`;
+            };
+            const CheckBox = ({ checked, label, noMargin }) => (
+                <span className={`inline-flex items-center ${noMargin ? '' : 'mr-4'}`}>
+                    <span className="inline-block border border-black w-4 h-4 mr-1 text-center leading-3 text-sm font-bold relative top-[1px]">
+                        {checked ? '✓' : ''}
+                    </span>
+                    {label && <span>{label}</span>}
+                </span>
+            );
+
+            const RequiredLabel = () => <span className="text-red-500 text-xs ml-1">(必須)</span>;
+
+            return (
+                <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
+                    <header className="bg-slate-800 text-white p-4 shadow-md print:hidden">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-6 h-6" />
+                                <h1 className="text-xl font-bold">支払督促申立書 自動作成ツール</h1>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => { if(window.confirm('リセットしますか？')) setFormData(initialData); }} className="flex items-center gap-1 px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded text-slate-200">
+                                    <RotateCcw className="w-4 h-4" /> リセット
+                                </button>
+                                <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold shadow">
+                                    <Printer className="w-5 h-5" /> PDF保存 / 印刷
                                 </button>
                             </div>
-                            <div className="flex items-center"><label className="text-xs font-bold text-gray-500">住所</label><RequiredLabel /></div>
-                            <input type="text" placeholder="住所" className="w-full p-2 border rounded" value={formData.creditor.address} onChange={(e) => handleChange('creditor', 'address', e.target.value)} />
-                            <div className="flex gap-2">
-                                <div className="w-1/2">
-                                    <div className="flex items-center"><label className="text-xs font-bold text-gray-500">電話</label><RequiredLabel /></div>
-                                    <input type="text" placeholder="電話" className="w-full p-2 border rounded" value={formData.creditor.phone} onChange={(e) => handleChange('creditor', 'phone', e.target.value)} />
-                                </div>
-                                <div className="w-1/2">
-                                    <label className="text-xs font-bold text-gray-500 block">FAX</label>
-                                    <input type="text" placeholder="FAX" className="w-full p-2 border rounded" value={formData.creditor.fax} onChange={(e) => handleChange('creditor', 'fax', e.target.value)} />
-                                </div>
-                            </div>
                         </div>
-                        <div className="bg-red-50 p-3 rounded space-y-3">
-                            <h3 className="font-bold text-red-800 text-sm">債務者（相手方）</h3>
-                            <div className="flex items-center"><label className="text-xs font-bold text-gray-500">氏名または会社名</label><RequiredLabel /></div>
-                            <input type="text" placeholder="氏名または会社名" className="w-full p-2 border rounded" value={formData.debtor.name} onChange={(e) => handleChange('debtor', 'name', e.target.value)} />
-                            <input type="text" placeholder="代表者氏名（法人の場合）" className="w-full p-2 border rounded" value={formData.debtor.repName} onChange={(e) => handleChange('debtor', 'repName', e.target.value)} />
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="〒" className="w-24 p-2 border rounded" value={formData.debtor.postalCode} onChange={(e) => handleChange('debtor', 'postalCode', e.target.value)} />
-                                <button onClick={() => searchAddress(formData.debtor.postalCode, 'debtor')} className="bg-red-200 px-2 rounded flex items-center justify-center w-10 disabled:opacity-50" disabled={isSearching}>
-                                    <Search className="w-4 h-4"/>
-                                </button>
-                            </div>
-                            <div className="flex items-center"><label className="text-xs font-bold text-gray-500">住所</label><RequiredLabel /></div>
-                            <input type="text" placeholder="住所" className="w-full p-2 border rounded" value={formData.debtor.address} onChange={(e) => handleChange('debtor', 'address', e.target.value)} />
-                            <div className="flex gap-2">
-                                <input type="text" placeholder="電話" className="w-1/2 p-2 border rounded" value={formData.debtor.phone} onChange={(e) => handleChange('debtor', 'phone', e.target.value)} />
-                                <input type="text" placeholder="FAX" className="w-1/2 p-2 border rounded" value={formData.debtor.fax} onChange={(e) => handleChange('debtor', 'fax', e.target.value)} />
-                            </div>
-                        </div>
-                    </div>
+                    </header>
 
-                    <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-green-500">
-                        <h2 className="font-bold text-lg border-b pb-2">2. 請求の原因（貸付詳細）</h2>
-                        <div className="space-y-3">
-                            <div><label className="text-xs font-bold text-gray-500">(1) 貸付日</label><input type="date" className="w-full p-2 border rounded" value={formData.loan.date} onChange={(e) => handleChange('loan', 'date', e.target.value)} /></div>
-                            <div>
-                                <div className="flex items-center"><label className="text-xs font-bold text-gray-500">(2) 貸付金額</label><RequiredLabel /></div>
-                                <div className="relative"><span className="absolute left-3 top-2">¥</span><input type="number" className="w-full p-2 pl-8 border rounded" value={formData.loan.amount} onChange={(e) => handleChange('loan', 'amount', e.target.value)} /></div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 block mb-1">(3) 利息の定め</label>
-                                <div className="flex gap-4 mb-2"><label><input type="radio" name="interest" checked={formData.loan.hasInterest === 'no'} onChange={() => handleChange('loan', 'hasInterest', 'no')} /> なし</label><label><input type="radio" name="interest" checked={formData.loan.hasInterest === 'yes'} onChange={() => handleChange('loan', 'hasInterest', 'yes')} /> あり</label></div>
-                                {formData.loan.hasInterest === 'yes' && (<div className="flex items-center gap-2"><span>年</span><input type="number" className="w-20 p-2 border rounded" value={formData.loan.interestRate} onChange={(e) => handleChange('loan', 'interestRate', e.target.value)} /><span>%</span></div>)}
-                                <p className="text-[10px] text-gray-500 mt-1">※ありの場合、遅延損害金も同率になります。</p>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 block mb-1">(4) 返済期の定め</label>
-                                <div className="flex gap-4 mb-2"><label><input type="radio" name="deadline" checked={formData.loan.hasDeadline === 'no'} onChange={() => handleChange('loan', 'hasDeadline', 'no')} /> なし</label><label><input type="radio" name="deadline" checked={formData.loan.hasDeadline === 'yes'} onChange={() => handleChange('loan', 'hasDeadline', 'yes')} /> あり</label></div>
-                                {formData.loan.hasDeadline === 'yes' ? (
-                                    <input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineDate} onChange={(e) => handleChange('loan', 'deadlineDate', e.target.value)} />
-                                ) : (
-                                    (formData.loan.hasInterest === 'yes') ? (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="text-[10px]">返済を求めた日（催告日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate1} onChange={handleDeadlineNoticeDate1Change} /></div>
-                                            <div><span className="text-[10px]">期限日（自動+7日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate2} onChange={(e) => handleChange('loan', 'deadlineNoticeDate2', e.target.value)} /></div>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div><span className="text-[10px]">返済を求めた日（催告日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate1} onChange={handleDeadlineNoticeDate1Change} /></div>
-                                            <div><span className="text-[10px]">期限日（自動+7日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate2} onChange={(e) => handleChange('loan', 'deadlineNoticeDate2', e.target.value)} /></div>
-                                        </div>
-                                    )
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 block mb-1">(5) 遅延損害金の定め</label>
-                                <div className="flex gap-4 mb-2"><label><input type="radio" name="delay" checked={formData.loan.hasDelayDamages === 'no'} onChange={() => handleChange('loan', 'hasDelayDamages', 'no')} /> なし</label><label><input type="radio" name="delay" checked={formData.loan.hasDelayDamages === 'yes'} onChange={() => handleChange('loan', 'hasDelayDamages', 'yes')} /> あり</label></div>
-                                {formData.loan.hasDelayDamages === 'yes' && (<div className="flex items-center gap-2"><span>年</span><input type="number" className="w-20 p-2 border rounded" value={formData.loan.delayDamagesRate} onChange={(e) => handleChange('loan', 'delayDamagesRate', e.target.value)} /><span>%</span></div>)}
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 block mb-1">(6) 連帯保証</label>
-                                <div className="flex gap-4 mb-2"><label><input type="radio" name="guarantor" checked={formData.loan.hasGuarantor === 'no'} onChange={() => handleChange('loan', 'hasGuarantor', 'no')} /> なし</label><label><input type="radio" name="guarantor" checked={formData.loan.hasGuarantor === 'yes'} onChange={() => handleChange('loan', 'hasGuarantor', 'yes')} /> あり</label></div>
-                                {formData.loan.hasGuarantor === 'yes' && (<input type="text" placeholder="連帯保証人氏名" className="w-full p-2 border rounded" value={formData.loan.guarantorName} onChange={(e) => handleChange('loan', 'guarantorName', e.target.value)} />)}
-                            </div>
-                            <div><label className="text-xs font-bold text-gray-500">(7) その他関連する事情</label><input type="text" className="w-full p-2 border rounded" value={formData.loan.specialCondition} onChange={(e) => handleChange('loan', 'specialCondition', e.target.value)} /></div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-orange-500">
-                        <h2 className="font-bold text-lg border-b pb-2">3. 返済状況</h2>
-                        <div className="flex gap-4 mb-2"><label><input type="radio" name="repayment" checked={formData.loan.repaymentStatus === 'none'} onChange={() => handleChange('loan', 'repaymentStatus', 'none')} /> 全部未返済</label><label><input type="radio" name="repayment" checked={formData.loan.repaymentStatus === 'partial'} onChange={() => handleChange('loan', 'repaymentStatus', 'partial')} /> 一部返済あり</label></div>
-                        {formData.loan.repaymentStatus === 'partial' && (
-                            <div className="space-y-2">
-                                <div className="text-xs text-gray-500 mb-2">※返済額は自動的に利息→元本の順で充当計算されます。</div>
-                                {formData.loan.repaymentHistory.map((item, idx) => (
-                                    <div key={idx} className="flex gap-2 items-center">
-                                        <input type="date" className="w-1/2 p-1 border rounded text-xs" value={item.date} onChange={(e) => handleHistoryChange(idx, 'date', e.target.value)} />
-                                        <input type="number" placeholder="金額" className="w-1/2 p-1 border rounded text-xs" value={item.amount} onChange={(e) => handleHistoryChange(idx, 'amount', e.target.value)} />
-                                        <button onClick={() => removeHistoryRow(idx)}><Trash2 className="w-4 h-4 text-red-500"/></button>
+                    <main className="max-w-7xl mx-auto p-4 md:p-8 flex flex-col lg:flex-row gap-8">
+                        {/* 入力フォーム */}
+                        <div className="w-full lg:w-1/3 space-y-6 print:hidden h-[calc(100vh-100px)] overflow-y-auto pr-2">
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-blue-500">
+                                <h2 className="font-bold text-lg border-b pb-2">1. 当事者</h2>
+                                <div className="bg-blue-50 p-3 rounded space-y-3">
+                                    <h3 className="font-bold text-blue-800 text-sm">債権者（あなた）</h3>
+                                    <div className="flex items-center"><label className="text-xs font-bold text-gray-500">氏名または会社名</label><RequiredLabel /></div>
+                                    <input type="text" placeholder="氏名または会社名" className="w-full p-2 border rounded" value={formData.creditor.name} onChange={(e) => handleChange('creditor', 'name', e.target.value)} />
+                                    <input type="text" placeholder="代表者氏名（法人の場合）" className="w-full p-2 border rounded" value={formData.creditor.repName} onChange={(e) => handleChange('creditor', 'repName', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="〒" className="w-24 p-2 border rounded" value={formData.creditor.postalCode} onChange={(e) => handleChange('creditor', 'postalCode', e.target.value)} />
+                                        <button onClick={() => searchAddress(formData.creditor.postalCode, 'creditor')} className="bg-blue-200 px-2 rounded flex items-center justify-center w-10 disabled:opacity-50" disabled={isSearching}>
+                                            <Search className="w-4 h-4"/>
+                                        </button>
                                     </div>
-                                ))}
-                                <button onClick={addHistoryRow} className="text-xs flex items-center gap-1 text-blue-600"><Plus className="w-3 h-3"/> 行を追加</button>
-                                
-                                {calculatedHistory.length > 0 && (
-                                    <div className="mt-4 bg-gray-100 p-2 rounded text-xs">
-                                        <div className="font-bold mb-1">【計算結果プレビュー】</div>
-                                        <div className="grid grid-cols-4 gap-1 font-bold border-b border-gray-300 pb-1 mb-1">
-                                            <span>日付</span><span>返済</span><span>利息充当</span><span>元本充当</span>
+                                    <div className="flex items-center"><label className="text-xs font-bold text-gray-500">住所</label><RequiredLabel /></div>
+                                    <input type="text" placeholder="住所" className="w-full p-2 border rounded" value={formData.creditor.address} onChange={(e) => handleChange('creditor', 'address', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <div className="w-1/2">
+                                            <div className="flex items-center"><label className="text-xs font-bold text-gray-500">電話</label><RequiredLabel /></div>
+                                            <input type="text" placeholder="電話" className="w-full p-2 border rounded" value={formData.creditor.phone} onChange={(e) => handleChange('creditor', 'phone', e.target.value)} />
                                         </div>
-                                        {calculatedHistory.map((calc, i) => (
-                                            <div key={i} className="grid grid-cols-4 gap-1 border-b border-gray-200 py-1">
-                                                <span>{calc.date.substring(5).replace('-','/')}</span>
-                                                <span>{calc.amount}</span>
-                                                <span className="text-gray-600">{calc.interestAlloc}</span>
-                                                <span className="text-blue-600 font-bold">{calc.principalAlloc}</span>
+                                        <div className="w-1/2">
+                                            <label className="text-xs font-bold text-gray-500 block">FAX</label>
+                                            <input type="text" placeholder="FAX" className="w-full p-2 border rounded" value={formData.creditor.fax} onChange={(e) => handleChange('creditor', 'fax', e.target.value)} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-red-50 p-3 rounded space-y-3">
+                                    <h3 className="font-bold text-red-800 text-sm">債務者（相手方）</h3>
+                                    <div className="flex items-center"><label className="text-xs font-bold text-gray-500">氏名または会社名</label><RequiredLabel /></div>
+                                    <input type="text" placeholder="氏名または会社名" className="w-full p-2 border rounded" value={formData.debtor.name} onChange={(e) => handleChange('debtor', 'name', e.target.value)} />
+                                    <input type="text" placeholder="代表者氏名（法人の場合）" className="w-full p-2 border rounded" value={formData.debtor.repName} onChange={(e) => handleChange('debtor', 'repName', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="〒" className="w-24 p-2 border rounded" value={formData.debtor.postalCode} onChange={(e) => handleChange('debtor', 'postalCode', e.target.value)} />
+                                        <button onClick={() => searchAddress(formData.debtor.postalCode, 'debtor')} className="bg-red-200 px-2 rounded flex items-center justify-center w-10 disabled:opacity-50" disabled={isSearching}>
+                                            <Search className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center"><label className="text-xs font-bold text-gray-500">住所</label><RequiredLabel /></div>
+                                    <input type="text" placeholder="住所" className="w-full p-2 border rounded" value={formData.debtor.address} onChange={(e) => handleChange('debtor', 'address', e.target.value)} />
+                                    <div className="flex gap-2">
+                                        <input type="text" placeholder="電話" className="w-1/2 p-2 border rounded" value={formData.debtor.phone} onChange={(e) => handleChange('debtor', 'phone', e.target.value)} />
+                                        <input type="text" placeholder="FAX" className="w-1/2 p-2 border rounded" value={formData.debtor.fax} onChange={(e) => handleChange('debtor', 'fax', e.target.value)} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-green-500">
+                                <h2 className="font-bold text-lg border-b pb-2">2. 請求の原因（貸付詳細）</h2>
+                                <div className="space-y-3">
+                                    <div><label className="text-xs font-bold text-gray-500">(1) 貸付日</label><input type="date" className="w-full p-2 border rounded" value={formData.loan.date} onChange={(e) => handleChange('loan', 'date', e.target.value)} /></div>
+                                    <div>
+                                        <div className="flex items-center"><label className="text-xs font-bold text-gray-500">(2) 貸付金額</label><RequiredLabel /></div>
+                                        <div className="relative"><span className="absolute left-3 top-2">¥</span><input type="number" className="w-full p-2 pl-8 border rounded" value={formData.loan.amount} onChange={(e) => handleChange('loan', 'amount', e.target.value)} /></div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(3) 利息の定め</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="interest" checked={formData.loan.hasInterest === 'no'} onChange={() => handleChange('loan', 'hasInterest', 'no')} /> なし</label><label><input type="radio" name="interest" checked={formData.loan.hasInterest === 'yes'} onChange={() => handleChange('loan', 'hasInterest', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasInterest === 'yes' && (<div className="flex items-center gap-2"><span>年</span><input type="number" className="w-20 p-2 border rounded" value={formData.loan.interestRate} onChange={(e) => handleChange('loan', 'interestRate', e.target.value)} /><span>%</span></div>)}
+                                        <p className="text-[10px] text-gray-500 mt-1">※ありの場合、遅延損害金も同率になります。</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(4) 返済期の定め</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="deadline" checked={formData.loan.hasDeadline === 'no'} onChange={() => handleChange('loan', 'hasDeadline', 'no')} /> なし</label><label><input type="radio" name="deadline" checked={formData.loan.hasDeadline === 'yes'} onChange={() => handleChange('loan', 'hasDeadline', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasDeadline === 'yes' ? (
+                                            <input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineDate} onChange={(e) => handleChange('loan', 'deadlineDate', e.target.value)} />
+                                        ) : (
+                                            (formData.loan.hasInterest === 'yes') ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div><span className="text-[10px]">返済を求めた日（催告日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate1} onChange={handleDeadlineNoticeDate1Change} /></div>
+                                                    <div><span className="text-[10px]">期限日（自動+7日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate2} onChange={(e) => handleChange('loan', 'deadlineNoticeDate2', e.target.value)} /></div>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div><span className="text-[10px]">返済を求めた日（催告日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate1} onChange={handleDeadlineNoticeDate1Change} /></div>
+                                                    <div><span className="text-[10px]">期限日（自動+7日）</span><input type="date" className="w-full p-2 border rounded" value={formData.loan.deadlineNoticeDate2} onChange={(e) => handleChange('loan', 'deadlineNoticeDate2', e.target.value)} /></div>
+                                                </div>
+                                            )
+                                        )}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(5) 遅延損害金の定め</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="delay" checked={formData.loan.hasDelayDamages === 'no'} onChange={() => handleChange('loan', 'hasDelayDamages', 'no')} /> なし</label><label><input type="radio" name="delay" checked={formData.loan.hasDelayDamages === 'yes'} onChange={() => handleChange('loan', 'hasDelayDamages', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasDelayDamages === 'yes' && (<div className="flex items-center gap-2"><span>年</span><input type="number" className="w-20 p-2 border rounded" value={formData.loan.delayDamagesRate} onChange={(e) => handleChange('loan', 'delayDamagesRate', e.target.value)} /><span>%</span></div>)}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 block mb-1">(6) 連帯保証</label>
+                                        <div className="flex gap-4 mb-2"><label><input type="radio" name="guarantor" checked={formData.loan.hasGuarantor === 'no'} onChange={() => handleChange('loan', 'hasGuarantor', 'no')} /> なし</label><label><input type="radio" name="guarantor" checked={formData.loan.hasGuarantor === 'yes'} onChange={() => handleChange('loan', 'hasGuarantor', 'yes')} /> あり</label></div>
+                                        {formData.loan.hasGuarantor === 'yes' && (<input type="text" placeholder="連帯保証人氏名" className="w-full p-2 border rounded" value={formData.loan.guarantorName} onChange={(e) => handleChange('loan', 'guarantorName', e.target.value)} />)}
+                                    </div>
+                                    <div><label className="text-xs font-bold text-gray-500">(7) その他関連する事情</label><input type="text" className="w-full p-2 border rounded" value={formData.loan.specialCondition} onChange={(e) => handleChange('loan', 'specialCondition', e.target.value)} /></div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-orange-500">
+                                <h2 className="font-bold text-lg border-b pb-2">3. 返済状況</h2>
+                                <div className="flex gap-4 mb-2"><label><input type="radio" name="repayment" checked={formData.loan.repaymentStatus === 'none'} onChange={() => handleChange('loan', 'repaymentStatus', 'none')} /> 全部未返済</label><label><input type="radio" name="repayment" checked={formData.loan.repaymentStatus === 'partial'} onChange={() => handleChange('loan', 'repaymentStatus', 'partial')} /> 一部返済あり</label></div>
+                                {formData.loan.repaymentStatus === 'partial' && (
+                                    <div className="space-y-2">
+                                        <div className="text-xs text-gray-500 mb-2">※返済額は自動的に利息→元本の順で充当計算されます。</div>
+                                        {formData.loan.repaymentHistory.map((item, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                <input type="date" className="w-1/2 p-1 border rounded text-xs" value={item.date} onChange={(e) => handleHistoryChange(idx, 'date', e.target.value)} />
+                                                <input type="number" placeholder="金額" className="w-1/2 p-1 border rounded text-xs" value={item.amount} onChange={(e) => handleHistoryChange(idx, 'amount', e.target.value)} />
+                                                <button onClick={() => removeHistoryRow(idx)}><Trash2 className="w-4 h-4 text-red-500"/></button>
                                             </div>
                                         ))}
-                                        <div className="mt-2 text-right font-bold text-red-600">残元金: {formatCurrency(formData.claim.principal)} 円</div>
+                                        <button onClick={addHistoryRow} className="text-xs flex items-center gap-1 text-blue-600"><Plus className="w-3 h-3"/> 行を追加</button>
+                                        
+                                        {calculatedHistory.length > 0 && (
+                                            <div className="mt-4 bg-gray-100 p-2 rounded text-xs">
+                                                <div className="font-bold mb-1">【計算結果プレビュー】</div>
+                                                <div className="grid grid-cols-4 gap-1 font-bold border-b border-gray-300 pb-1 mb-1">
+                                                    <span>日付</span><span>返済</span><span>利息充当</span><span>元本充当</span>
+                                                </div>
+                                                {calculatedHistory.map((calc, i) => (
+                                                    <div key={i} className="grid grid-cols-4 gap-1 border-b border-gray-200 py-1">
+                                                        <span>{calc.date.substring(5).replace('-','/')}</span>
+                                                        <span>{calc.amount}</span>
+                                                        <span className="text-gray-600">{calc.interestAlloc}</span>
+                                                        <span className="text-blue-600 font-bold">{calc.principalAlloc}</span>
+                                                    </div>
+                                                ))}
+                                                <div className="mt-2 text-right font-bold text-red-600">残元金: {formatCurrency(formData.claim.principal)} 円</div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
 
-                    <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-purple-500">
-                        <h2 className="font-bold text-lg border-b pb-2">4. 費用・提出先</h2>
-                        <div><label className="text-xs font-bold text-gray-500">提出先裁判所</label><div className="flex gap-2"><input type="text" className="w-full p-2 border rounded" value={formData.courtName} onChange={(e) => handleRootChange('courtName', e.target.value)} /><span className="whitespace-nowrap pt-2">簡易裁判所</span></div><p className="text-xs text-orange-600 mt-1">{jurisdictionMessage}</p></div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500">①申立手数料</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.fee} onChange={(e) => handleChange('costs', 'fee', e.target.value)} placeholder="自動計算" />
+                            <div className="bg-white rounded-lg shadow p-5 space-y-4 border-l-4 border-purple-500">
+                                <h2 className="font-bold text-lg border-b pb-2">4. 費用・提出先</h2>
+                                <div><label className="text-xs font-bold text-gray-500">提出先裁判所</label><div className="flex gap-2"><input type="text" className="w-full p-2 border rounded" value={formData.courtName} onChange={(e) => handleRootChange('courtName', e.target.value)} /><span className="whitespace-nowrap pt-2">簡易裁判所</span></div><p className="text-xs text-orange-600 mt-1">{jurisdictionMessage}</p></div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500">①申立手数料</label><input type="number" className="w-full p-2 border rounded" value={formData.costs.fee} onChange={(e) => handleChange('costs', 'fee', e.target.value)} placeholder="自動計算" />
+                                </div>
+                                <div><label className="text-xs font-bold text-gray-500">添付書類</label><div className="flex gap-2 mt-1"><label className="flex items-center gap-1"><input type="checkbox" checked={formData.attachments.cert} onChange={(e) => setFormData(prev => ({...prev, attachments: {...prev.attachments, cert: e.target.checked}}))} />資格証明書</label></div></div>
+                            </div>
                         </div>
-                        <div><label className="text-xs font-bold text-gray-500">添付書類</label><div className="flex gap-2 mt-1"><label className="flex items-center gap-1"><input type="checkbox" checked={formData.attachments.cert} onChange={(e) => setFormData(prev => ({...prev, attachments: {...prev.attachments, cert: e.target.checked}}))} />資格証明書</label></div></div>
-                    </div>
+
+                        {/* プレビュー */}
+                        <div className="w-full lg:w-2/3 bg-gray-200 lg:bg-transparent overflow-x-auto print:bg-white print:p-0 print:w-full print:block">
+                            <div className="print-pages-container">
+                                {/* 1ページ目：申立書本紙 */}
+                                <div className="page bg-white shadow-lg p-12 text-black relative mb-8 print:mb-0 print:shadow-none print:w-full">
+                                    <h1 className="text-2xl font-bold text-center mb-8 tracking-widest">支払督促申立書</h1>
+                                    <div className="text-right mb-4">{toJapaneseEra(formData.date)}</div>
+                                    <div className="mb-8"><div className="border-b border-black inline-block min-w-[150px] text-center">{formData.courtName}</div> 簡易裁判所　裁判所書記官　殿</div>
+                                    <div className="mb-8 pl-8 relative">
+                                        <div>申立人（債権者）</div>
+                                        <div className="text-xl ml-32 -mt-7 border-b border-black inline-block min-w-[200px] text-center">{formData.creditor.name}</div>
+                                        {formData.creditor.repName && (
+                                            <div className="text-lg ml-32 mt-1">代表者代表取締役　{formData.creditor.repName}</div>
+                                        )}
+                                        <span className="ml-4">印</span>
+                                    </div>
+                                    <div className="mb-4"><span className="inline-block w-24">事件名</span>貸金　　請求事件</div>
+                                    <div className="mb-4"><span className="inline-block w-32">当事者の表示</span>別紙当事者目録記載のとおり</div>
+                                    <div className="mb-4"><span className="inline-block w-40">請求の趣旨及び原因</span>別紙請求の趣旨及び原因記載のとおり</div>
+                                    <div className="my-8 mx-4 p-4">「債務者は、【<CheckBox checked={formData.loan.hasGuarantor === 'yes'} />連帯して】債権者に対し、請求の趣旨記載の金額を支払え」<br/>との支払督促を求める。</div>
+                                    <div className="mb-8">
+                                        <div>申立手続費用 金 <span className="inline-block w-32 text-right border-b border-black">{formatCurrency(getTotalCosts())}</span> 円</div>
+                                        <div className="ml-8 text-sm mt-2">
+                                            <div className="font-bold">内　訳</div>
+                                            <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>①申立手数料</span><span>{formatCurrency(formData.costs.fee)} 円</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="mb-8 ml-8">
+                                        <div className="flex w-96"><span className="w-32">価額</span><span>金 {formatCurrency(getTotalClaim())} 円</span></div>
+                                        <div className="flex w-96"><span className="w-32">手数料額</span><span>金 {formatCurrency(formData.costs.fee)} 円</span></div>
+                                    </div>
+                                    <div>
+                                        <div>添付書類</div>
+                                        <div className="grid grid-cols-2 ml-4 gap-2">
+                                            <div><CheckBox checked={formData.attachments.cert} label="資格証明書" /></div>
+                                            <div><CheckBox checked={false} label="　　　　　" /></div>
+                                            <div><CheckBox checked={false} label="　　　　　" /></div>
+                                            <div><CheckBox checked={false} label="　　　　　" /></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 2ページ目：別紙 当事者目録 */}
+                                <div className="page bg-white shadow-lg p-12 text-black relative mb-8 print:mb-0 print:shadow-none print:w-full">
+                                    <div className="text-center mb-8">（別紙）</div>
+                                    <h2 className="text-2xl font-bold text-center mb-12 tracking-widest">当 事 者 目 録</h2>
+                                    <div className="mb-12">
+                                        <div className="flex justify-between items-end mb-2"><div>住所（所在地）〒 {formData.creditor.postalCode}</div><div className="text-xs">（送達場所）</div></div>
+                                        <div className="pl-4 mb-4 min-h-[3rem]">{formData.creditor.address}</div>
+                                        <div className="mb-4">債権者（氏名、名称及び代表者の資格氏名）</div>
+                                        <div className="pl-4 mb-2 text-lg font-bold min-h-[2rem]">{formData.creditor.name}</div>
+                                        {formData.creditor.repName && (
+                                            <div className="pl-4 mb-4 text-md">代表者代表取締役　{formData.creditor.repName}</div>
+                                        )}
+                                        <div className="flex gap-8 pl-4"><div>電　話　　{formData.creditor.phone}</div><div>ＦＡＸ　　{formData.creditor.fax}</div></div>
+                                    </div>
+                                    <hr className="border-gray-400 mb-12" />
+                                    <div className="mb-12">
+                                        <div className="mb-2">住所（所在地）〒 {formData.debtor.postalCode}</div>
+                                        <div className="pl-4 mb-4 min-h-[3rem]">{formData.debtor.address}</div>
+                                        <div className="mb-4">債務者（氏名、名称及び代表者の資格氏名）</div>
+                                        <div className="pl-4 mb-2 text-lg font-bold min-h-[2rem]">{formData.debtor.name}</div>
+                                        {formData.debtor.repName && (
+                                            <div className="pl-4 mb-4 text-md">代表者代表取締役　{formData.debtor.repName}</div>
+                                        )}
+                                        <div className="flex gap-8 pl-4"><div>電　話　　{formData.debtor.phone}</div><div>ＦＡＸ　　{formData.debtor.fax}</div></div>
+                                    </div>
+                                </div>
+
+                                {/* 3ページ目：別紙 請求の趣旨及び原因 */}
+                                <div className="page bg-white shadow-lg p-12 text-black relative print:shadow-none print:w-full">
+                                    <div className="text-center mb-4">（別紙）</div>
+                                    <h2 className="text-xl font-bold text-center mb-8 tracking-widest">請 求 の 趣 旨 及 び 原 因</h2>
+                                    <div className="mb-8">
+                                        <div className="font-bold border-b border-black inline-block mb-2">請求の趣旨</div>
+                                        <div className="pl-4">
+                                            <div className="flex mb-1"><span className="w-8">１</span><div>金　{formatCurrency(getTotalClaim())}　円</div></div>
+                                            <div className="pl-8 text-sm mb-4">（内訳　残元金　{formatCurrency(formData.claim.principal)}　円　利息　{formatCurrency(formData.claim.interest)}　円　遅延損害金　{formatCurrency(formData.claim.delayDamages)}　円）</div>
+                                            <div className="flex mb-1">
+                                                <span className="w-8">２</span>
+                                                <div className="leading-relaxed">
+                                                    （<CheckBox checked={true} />上記金額／<CheckBox checked={false} />上記金額の内金　　　円）に対する<br/>
+                                                    （<CheckBox checked={formData.loan.hasDeadline === 'no'} />支払督促送達日の翌日／<CheckBox checked={formData.loan.hasDeadline === 'yes'} /> {toJapaneseEra(formData.loan.hasDeadline === 'yes' ? formData.loan.deadlineDate : '')}）<br/>
+                                                    から完済まで、年 {formData.claim.delayDamagesRate} ％の割合による遅延損害金
+                                                </div>
+                                            </div>
+                                            <div className="flex mt-4"><span className="w-8">３</span><div>金　{formatCurrency(getTotalCosts())}　円（申立手続費用）</div></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="font-bold border-b border-black inline-block mb-2">請求の原因</div>
+                                        <div className="pl-4 text-sm leading-relaxed">
+                                            <div className="flex mb-2"><span className="w-8">１</span><div>債権者は、債務者に対し、以下のとおり、金員を貸し付けた。</div></div>
+                                            <div className="pl-8 space-y-1 mb-4">
+                                                <div>（１）貸付日　　　{toJapaneseEra(formData.loan.date)}</div>
+                                                <div>（２）貸付金額　　金　{formatCurrency(formData.loan.amount)}　円</div>
+                                                <div>（３）利息の定め　　<CheckBox checked={formData.loan.hasInterest === 'yes'} label={`あり（年 ${formData.loan.interestRate} ％）`} /><br/><span className="ml-24"><CheckBox checked={formData.loan.hasInterest === 'no'} label="なし" /></span></div>
+                                                <div>
+                                                    （４）返済期の定め<br/>
+                                                    <span className="ml-8"><CheckBox checked={formData.loan.hasDeadline === 'yes'} label={`あり（ ${toJapaneseEra(formData.loan.deadlineDate)} ）`} /></span><br/>
+                                                    <span className="ml-8"><CheckBox checked={formData.loan.hasDeadline === 'no'} label={`なし（ ${toJapaneseEra(formData.loan.deadlineNoticeDate1)}、${toJapaneseEra(formData.loan.deadlineNoticeDate2)} を期限として、返還の催告をした。）`} /></span>
+                                                </div>
+                                                <div>（５）遅延損害金の定め　<CheckBox checked={formData.loan.hasDelayDamages === 'yes'} label={`あり（年 ${formData.loan.delayDamagesRate} ％）`} /><br/><span className="ml-36"><CheckBox checked={formData.loan.hasDelayDamages === 'no'} label="なし" /></span></div>
+                                                <div>（６）書面による連帯保証<br/><span className="ml-4"><CheckBox checked={formData.loan.hasGuarantor === 'yes'} label={`あり　連帯保証人【（□債務者　${formData.loan.guarantorName}　□　　　　　　　　）】`} /></span><br/><span className="ml-4"><CheckBox checked={formData.loan.hasGuarantor === 'no'} label="なし" /></span></div>
+                                                <div>（７）その他関連する事情　　{formData.loan.specialCondition}</div>
+                                            </div>
+                                            <div className="flex mb-4"><span className="w-8">２</span><div>債務者は、上記貸付金について、<br/>【<CheckBox checked={formData.loan.repaymentStatus === 'none'} label="全部返済していない" />／<CheckBox checked={formData.loan.repaymentStatus === 'partial'} label="別紙のとおり返済した" />】。</div></div>
+                                            <div>（その他の参考事項は以下のとおり）</div>
+                                            {formData.loan.repaymentStatus === 'partial' && (
+                                                <div className="mt-4">
+                                                    <div>（別紙）</div>
+                                                    <table className="w-full border-collapse border border-black mt-2 text-xs">
+                                                        <thead><tr className="bg-gray-100"><th className="border border-black p-1">返済年月日</th><th className="border border-black p-1">返済金額（円）</th><th className="border border-black p-1">利息充当</th><th className="border border-black p-1">元金充当</th><th className="border border-black p-1">残元金</th></tr></thead>
+                                                        <tbody>
+                                                            {calculatedHistory.map((item, i) => (
+                                                                <tr key={i}>
+                                                                    <td className="border border-black p-1 text-center">{toJapaneseEra(item.date)}</td>
+                                                                    <td className="border border-black p-1 text-right">{formatCurrency(item.amount)}</td>
+                                                                    <td className="border border-black p-1 text-right text-gray-600">{formatCurrency(item.interestAlloc)}</td>
+                                                                    <td className="border border-black p-1 text-right font-bold">{formatCurrency(item.principalAlloc)}</td>
+                                                                    <td className="border border-black p-1 text-right">{formatCurrency(item.balance)}</td>
+                                                                </tr>
+                                                            ))}
+                                                            {[...Array(Math.max(0, 5 - calculatedHistory.length))].map((_, i) => (<tr key={`empty-${i}`}><td className="border border-black p-1 h-6"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td></tr>))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
                 </div>
+            );
+        }
 
-                {/* プレビュー */}
-                <div className="w-full lg:w-2/3 bg-gray-200 lg:bg-transparent overflow-x-auto print:bg-white print:p-0 print:w-full print:block">
-                    <div className="print-pages-container">
-                        {/* 1ページ目：申立書本紙 */}
-                        <div className="page bg-white shadow-lg p-12 text-black relative mb-8 print:mb-0 print:shadow-none print:w-full">
-                            <h1 className="text-2xl font-bold text-center mb-8 tracking-widest">支払督促申立書</h1>
-                            <div className="text-right mb-4">{toJapaneseEra(formData.date)}</div>
-                            <div className="mb-8"><div className="border-b border-black inline-block min-w-[150px] text-center">{formData.courtName}</div> 簡易裁判所　裁判所書記官　殿</div>
-                            <div className="mb-8 pl-8 relative">
-                                <div>申立人（債権者）</div>
-                                <div className="text-xl ml-32 -mt-7 border-b border-black inline-block min-w-[200px] text-center">{formData.creditor.name}</div>
-                                {formData.creditor.repName && (
-                                    <div className="text-lg ml-32 mt-1">代表者代表取締役　{formData.creditor.repName}</div>
-                                )}
-                                <span className="ml-4">印</span>
-                            </div>
-                            <div className="mb-4"><span className="inline-block w-24">事件名</span>貸金　　請求事件</div>
-                            <div className="mb-4"><span className="inline-block w-32">当事者の表示</span>別紙当事者目録記載のとおり</div>
-                            <div className="mb-4"><span className="inline-block w-40">請求の趣旨及び原因</span>別紙請求の趣旨及び原因記載のとおり</div>
-                            <div className="my-8 mx-4 p-4">「債務者は、【<CheckBox checked={formData.loan.hasGuarantor === 'yes'} />連帯して】債権者に対し、請求の趣旨記載の金額を支払え」<br/>との支払督促を求める。</div>
-                            <div className="mb-8">
-                                <div>申立手続費用 金 <span className="inline-block w-32 text-right border-b border-black">{formatCurrency(getTotalCosts())}</span> 円</div>
-                                <div className="ml-8 text-sm mt-2">
-                                    <div className="font-bold">内　訳</div>
-                                    <div className="flex justify-between w-96 border-b border-dotted border-gray-400"><span>①申立手数料</span><span>{formatCurrency(formData.costs.fee)} 円</span></div>
-                                </div>
-                            </div>
-                            <div className="mb-8 ml-8">
-                                <div className="flex w-96"><span className="w-32">価額</span><span>金 {formatCurrency(getTotalClaim())} 円</span></div>
-                                <div className="flex w-96"><span className="w-32">手数料額</span><span>金 {formatCurrency(formData.costs.fee)} 円</span></div>
-                            </div>
-                            <div>
-                                <div>添付書類</div>
-                                <div className="grid grid-cols-2 ml-4 gap-2">
-                                    <div><CheckBox checked={formData.attachments.cert} label="資格証明書" /></div>
-                                    <div><CheckBox checked={false} label="　　　　　" /></div>
-                                    <div><CheckBox checked={false} label="　　　　　" /></div>
-                                    <div><CheckBox checked={false} label="　　　　　" /></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 2ページ目：別紙 当事者目録 */}
-                        <div className="page bg-white shadow-lg p-12 text-black relative mb-8 print:mb-0 print:shadow-none print:w-full">
-                            <div className="text-center mb-8">（別紙）</div>
-                            <h2 className="text-2xl font-bold text-center mb-12 tracking-widest">当 事 者 目 録</h2>
-                            <div className="mb-12">
-                                <div className="flex justify-between items-end mb-2"><div>住所（所在地）〒 {formData.creditor.postalCode}</div><div className="text-xs">（送達場所）</div></div>
-                                <div className="pl-4 mb-4 min-h-[3rem]">{formData.creditor.address}</div>
-                                <div className="mb-4">債権者（氏名、名称及び代表者の資格氏名）</div>
-                                <div className="pl-4 mb-2 text-lg font-bold min-h-[2rem]">{formData.creditor.name}</div>
-                                {formData.creditor.repName && (
-                                    <div className="pl-4 mb-4 text-md">代表者代表取締役　{formData.creditor.repName}</div>
-                                )}
-                                <div className="flex gap-8 pl-4"><div>電　話　　{formData.creditor.phone}</div><div>ＦＡＸ　　{formData.creditor.fax}</div></div>
-                            </div>
-                            <hr className="border-gray-400 mb-12" />
-                            <div className="mb-12">
-                                <div className="mb-2">住所（所在地）〒 {formData.debtor.postalCode}</div>
-                                <div className="pl-4 mb-4 min-h-[3rem]">{formData.debtor.address}</div>
-                                <div className="mb-4">債務者（氏名、名称及び代表者の資格氏名）</div>
-                                <div className="pl-4 mb-2 text-lg font-bold min-h-[2rem]">{formData.debtor.name}</div>
-                                {formData.debtor.repName && (
-                                    <div className="pl-4 mb-4 text-md">代表者代表取締役　{formData.debtor.repName}</div>
-                                )}
-                                <div className="flex gap-8 pl-4"><div>電　話　　{formData.debtor.phone}</div><div>ＦＡＸ　　{formData.debtor.fax}</div></div>
-                            </div>
-                        </div>
-
-                        {/* 3ページ目：別紙 請求の趣旨及び原因 */}
-                        <div className="page bg-white shadow-lg p-12 text-black relative print:shadow-none print:w-full">
-                            <div className="text-center mb-4">（別紙）</div>
-                            <h2 className="text-xl font-bold text-center mb-8 tracking-widest">請 求 の 趣 旨 及 び 原 因</h2>
-                            <div className="mb-8">
-                                <div className="font-bold border-b border-black inline-block mb-2">請求の趣旨</div>
-                                <div className="pl-4">
-                                    <div className="flex mb-1"><span className="w-8">１</span><div>金　{formatCurrency(getTotalClaim())}　円</div></div>
-                                    <div className="pl-8 text-sm mb-4">（内訳　残元金　{formatCurrency(formData.claim.principal)}　円　利息　{formatCurrency(formData.claim.interest)}　円　遅延損害金　{formatCurrency(formData.claim.delayDamages)}　円）</div>
-                                    <div className="flex mb-1">
-                                        <span className="w-8">２</span>
-                                        <div className="leading-relaxed">
-                                            （<CheckBox checked={true} />上記金額／<CheckBox checked={false} />上記金額の内金　　　円）に対する<br/>
-                                            （<CheckBox checked={formData.loan.hasDeadline === 'no'} />支払督促送達日の翌日／<CheckBox checked={formData.loan.hasDeadline === 'yes'} /> {toJapaneseEra(formData.loan.hasDeadline === 'yes' ? formData.loan.deadlineDate : '')}）<br/>
-                                            から完済まで、年 {formData.claim.delayDamagesRate} ％の割合による遅延損害金
-                                        </div>
-                                    </div>
-                                    <div className="flex mt-4"><span className="w-8">３</span><div>金　{formatCurrency(getTotalCosts())}　円（申立手続費用）</div></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div className="font-bold border-b border-black inline-block mb-2">請求の原因</div>
-                                <div className="pl-4 text-sm leading-relaxed">
-                                    <div className="flex mb-2"><span className="w-8">１</span><div>債権者は、債務者に対し、以下のとおり、金員を貸し付けた。</div></div>
-                                    <div className="pl-8 space-y-1 mb-4">
-                                        <div>（１）貸付日　　　{toJapaneseEra(formData.loan.date)}</div>
-                                        <div>（２）貸付金額　　金　{formatCurrency(formData.loan.amount)}　円</div>
-                                        <div>（３）利息の定め　　<CheckBox checked={formData.loan.hasInterest === 'yes'} label={`あり（年 ${formData.loan.interestRate} ％）`} /><br/><span className="ml-24"><CheckBox checked={formData.loan.hasInterest === 'no'} label="なし" /></span></div>
-                                        <div>
-                                            （４）返済期の定め<br/>
-                                            <span className="ml-8"><CheckBox checked={formData.loan.hasDeadline === 'yes'} label={`あり（ ${toJapaneseEra(formData.loan.deadlineDate)} ）`} /></span><br/>
-                                            <span className="ml-8"><CheckBox checked={formData.loan.hasDeadline === 'no'} label={`なし（ ${toJapaneseEra(formData.loan.deadlineNoticeDate1)}、${toJapaneseEra(formData.loan.deadlineNoticeDate2)} を期限として、返還の催告をした。）`} /></span>
-                                        </div>
-                                        <div>（５）遅延損害金の定め　<CheckBox checked={formData.loan.hasDelayDamages === 'yes'} label={`あり（年 ${formData.loan.delayDamagesRate} ％）`} /><br/><span className="ml-36"><CheckBox checked={formData.loan.hasDelayDamages === 'no'} label="なし" /></span></div>
-                                        <div>（６）書面による連帯保証<br/><span className="ml-4"><CheckBox checked={formData.loan.hasGuarantor === 'yes'} label={`あり　連帯保証人【（□債務者　${formData.loan.guarantorName}　□　　　　　　　　）】`} /></span><br/><span className="ml-4"><CheckBox checked={formData.loan.hasGuarantor === 'no'} label="なし" /></span></div>
-                                        <div>（７）その他関連する事情　　{formData.loan.specialCondition}</div>
-                                    </div>
-                                    <div className="flex mb-4"><span className="w-8">２</span><div>債務者は、上記貸付金について、<br/>【<CheckBox checked={formData.loan.repaymentStatus === 'none'} label="全部返済していない" />／<CheckBox checked={formData.loan.repaymentStatus === 'partial'} label="別紙のとおり返済した" />】。</div></div>
-                                    <div>（その他の参考事項は以下のとおり）</div>
-                                    {formData.loan.repaymentStatus === 'partial' && (
-                                        <div className="mt-4">
-                                            <div>（別紙）</div>
-                                            <table className="w-full border-collapse border border-black mt-2 text-xs">
-                                                <thead><tr className="bg-gray-100"><th className="border border-black p-1">返済年月日</th><th className="border border-black p-1">返済金額（円）</th><th className="border border-black p-1">利息充当</th><th className="border border-black p-1">元金充当</th><th className="border border-black p-1">残元金</th></tr></thead>
-                                                <tbody>
-                                                    {calculatedHistory.map((item, i) => (
-                                                        <tr key={i}>
-                                                            <td className="border border-black p-1 text-center">{toJapaneseEra(item.date)}</td>
-                                                            <td className="border border-black p-1 text-right">{formatCurrency(item.amount)}</td>
-                                                            <td className="border border-black p-1 text-right text-gray-600">{formatCurrency(item.interestAlloc)}</td>
-                                                            <td className="border border-black p-1 text-right font-bold">{formatCurrency(item.principalAlloc)}</td>
-                                                            <td className="border border-black p-1 text-right">{formatCurrency(item.balance)}</td>
-                                                        </tr>
-                                                    ))}
-                                                    {[...Array(Math.max(0, 5 - calculatedHistory.length))].map((_, i) => (<tr key={`empty-${i}`}><td className="border border-black p-1 h-6"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td><td className="border border-black p-1"></td></tr>))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-    );
-}
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
